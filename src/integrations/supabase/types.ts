@@ -149,6 +149,131 @@ export type Database = {
           },
         ]
       }
+      knowledge_files: {
+        Row: {
+          created_at: string
+          folder_id: string | null
+          id: string
+          name: string
+          size: string | null
+          status: string
+          status_label: string
+          storage_path: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          name: string
+          size?: string | null
+          status?: string
+          status_label?: string
+          storage_path?: string | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          name?: string
+          size?: string | null
+          status?: string
+          status_label?: string
+          storage_path?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      meetings: {
+        Row: {
+          ai_summary: Json
+          audio_duration: string | null
+          audio_url: string | null
+          created_at: string
+          date: string
+          duration: string
+          folder: string
+          id: string
+          participants: number
+          tags: string[]
+          title: string
+          transcript: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_summary?: Json
+          audio_duration?: string | null
+          audio_url?: string | null
+          created_at?: string
+          date: string
+          duration?: string
+          folder?: string
+          id?: string
+          participants?: number
+          tags?: string[]
+          title: string
+          transcript?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_summary?: Json
+          audio_duration?: string | null
+          audio_url?: string | null
+          created_at?: string
+          date?: string
+          duration?: string
+          folder?: string
+          id?: string
+          participants?: number
+          tags?: string[]
+          title?: string
+          transcript?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memory_configs: {
         Row: {
           auto_extract: boolean
