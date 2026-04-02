@@ -2,7 +2,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
-import { useCurrentAdmin, useAdminLogout } from "@/admin/hooks/useAdminAuth";
+import { useAdminSession, useCurrentAdmin, useAdminLogout } from "@/admin/hooks/useAdminAuth";
 import { LogOut } from "lucide-react";
 
 const routeTitles: Record<string, string> = {
@@ -25,7 +25,8 @@ const routeTitles: Record<string, string> = {
 export function AdminHeader() {
   const location = useLocation();
   const title = routeTitles[location.pathname] || "管理后台";
-  const { data: admin } = useCurrentAdmin();
+  const { session } = useAdminSession();
+  const { data: admin } = useCurrentAdmin(session);
   const logout = useAdminLogout();
 
   return (

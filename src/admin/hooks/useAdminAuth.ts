@@ -2,12 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
 
 type AdminUser = Tables<"admin_users">;
 
 export function useAdminSession() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,8 +26,7 @@ export function useAdminSession() {
   return { session, loading };
 }
 
-export function useCurrentAdmin() {
-  const { session } = useAdminSession();
+export function useCurrentAdmin(session: Session | null) {
   return useQuery({
     queryKey: ["admin-current", session?.user?.id],
     queryFn: async () => {
@@ -49,7 +49,6 @@ export function useAdminLogin() {
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      // Verify admin status
       const { data: admin, error: adminErr } = await supabase
         .from("admin_users")
         .select("id")

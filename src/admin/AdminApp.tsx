@@ -22,7 +22,7 @@ import { Loader2 } from "lucide-react";
 
 function AdminGuard() {
   const { session, loading: sessionLoading } = useAdminSession();
-  const { data: admin, isLoading: adminLoading } = useCurrentAdmin();
+  const { data: admin, isLoading: adminLoading } = useCurrentAdmin(session);
 
   if (sessionLoading || adminLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
