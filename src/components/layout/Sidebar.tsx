@@ -14,7 +14,7 @@ interface SidebarProps {
 
 const navItems = [
   { icon: Plus, label: '新聊天', action: 'new' },
-  { icon: BookOpen, label: '知识库', action: 'knowledge' },
+  { icon: BookOpen, label: '知识库', action: 'knowledge', route: '/knowledge' },
   { icon: FileText, label: '会议纪要', action: 'minutes' },
   { icon: Lightbulb, label: '灵感笔记', action: 'notes' },
 ];
