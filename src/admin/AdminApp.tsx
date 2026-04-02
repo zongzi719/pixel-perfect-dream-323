@@ -39,7 +39,7 @@ export default function AdminApp() {
   return (
     <Routes>
       <Route path="login" element={<AdminLogin />} />
-      <Route element={<AdminGuard><AdminLayout /></AdminGuard>}>
+      <Route element={<AdminGuard />}>
         <Route index element={<Dashboard />} />
         <Route path="users" element={<UserList />} />
         <Route path="users/:id" element={<UserDetail />} />
