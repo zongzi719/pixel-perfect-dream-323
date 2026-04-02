@@ -23,6 +23,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [search, setSearch] = useState('');
   const { conversations, currentConversation, setCurrentConversation, createConversation } = useChat();
   const { mode } = useMode();
+  const navigate = useNavigate();
 
   const handleNewChat = () => {
     createConversation(mode);
