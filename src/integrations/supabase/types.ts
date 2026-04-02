@@ -14,13 +14,465 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          last_login: string | null
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          last_login?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          last_login?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      agents: {
+        Row: {
+          avatar: string | null
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          name: string
+          name_en: string | null
+          perspective: string | null
+          system_prompt: string | null
+          tags: string[] | null
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name: string
+          name_en?: string | null
+          perspective?: string | null
+          system_prompt?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          name_en?: string | null
+          perspective?: string | null
+          system_prompt?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          created_at: string
+          id: string
+          last_message: string | null
+          message_count: number
+          status: string
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          created_at?: string
+          id?: string
+          last_message?: string | null
+          message_count?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          created_at?: string
+          id?: string
+          last_message?: string | null
+          message_count?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      memory_configs: {
+        Row: {
+          auto_extract: boolean
+          created_at: string
+          id: string
+          last_updated: string
+          max_memory: number
+          memory_count: number
+          retention_days: number
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          auto_extract?: boolean
+          created_at?: string
+          id?: string
+          last_updated?: string
+          max_memory?: number
+          memory_count?: number
+          retention_days?: number
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          auto_extract?: boolean
+          created_at?: string
+          id?: string
+          last_updated?: string
+          max_memory?: number
+          memory_count?: number
+          retention_days?: number
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_configs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      notes: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          pay_method: string | null
+          plan_name: string | null
+          status: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          pay_method?: string | null
+          plan_name?: string | null
+          status?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          pay_method?: string | null
+          plan_name?: string | null
+          status?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          duration: string | null
+          features: string[] | null
+          id: string
+          name: string
+          price: number
+          status: string
+          subscribers: number
+          tokens: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: string | null
+          features?: string[] | null
+          id?: string
+          name: string
+          price?: number
+          status?: string
+          subscribers?: number
+          tokens?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration?: string | null
+          features?: string[] | null
+          id?: string
+          name?: string
+          price?: number
+          status?: string
+          subscribers?: number
+          tokens?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar: string | null
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          status: string
+          token_balance: number
+          token_used: number
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+          token_balance?: number
+          token_used?: number
+          updated_at?: string
+          user_id: string
+          username?: string
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+          token_balance?: number
+          token_used?: number
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          member_count: number
+          name: string
+          permissions: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          member_count?: number
+          name: string
+          permissions?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          member_count?: number
+          name?: string
+          permissions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      token_prices: {
+        Row: {
+          created_at: string
+          id: string
+          input_price: number
+          model: string
+          output_price: number
+          type: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_price?: number
+          model: string
+          output_price?: number
+          type: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_price?: number
+          model?: string
+          output_price?: number
+          type?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      usage_records: {
+        Row: {
+          agent_name: string | null
+          cost: number
+          created_at: string
+          id: string
+          tokens_input: number
+          tokens_output: number
+          type: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          cost?: number
+          created_at?: string
+          id?: string
+          tokens_input?: number
+          tokens_output?: number
+          type?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          cost?: number
+          created_at?: string
+          id?: string
+          tokens_input?: number
+          tokens_output?: number
+          type?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_dashboard_stats: { Args: never; Returns: Json }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
