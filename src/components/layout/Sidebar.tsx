@@ -42,7 +42,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             key={item.action}
             variant="ghost"
             size="icon"
-            onClick={item.action === 'new' ? handleNewChat : undefined}
+            onClick={item.action === 'new' ? handleNewChat : (item as any).route ? () => navigate((item as any).route) : undefined}
           >
             <item.icon className="h-4 w-4" />
           </Button>
