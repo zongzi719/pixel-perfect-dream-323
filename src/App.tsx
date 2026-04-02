@@ -11,6 +11,7 @@ import MeetingMinutes from "./pages/MeetingMinutes.tsx";
 import InspirationNotes from "./pages/InspirationNotes.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Login from "./pages/Login.tsx";
+import AdminApp from "./admin/AdminApp";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/knowledge" element={<KnowledgeBase />} />
               <Route path="/meetings" element={<MeetingMinutes />} />
               <Route path="/notes" element={<InspirationNotes />} />
+              <Route path="/admin/*" element={<AdminApp />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
