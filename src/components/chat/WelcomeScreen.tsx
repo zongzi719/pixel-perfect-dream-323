@@ -1,11 +1,15 @@
 import { useChat } from '@/contexts/ChatContext';
 import { useMode } from '@/contexts/ModeContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const suggestions = ['决策', '分析', '规划', '复盘'];
 
 export function WelcomeScreen() {
   const { createConversation } = useChat();
   const { mode } = useMode();
+  const { user } = useAuth();
+
+  const displayName = user?.user_metadata?.username || user?.user_metadata?.phone || user?.email?.split('@')[0] || '你';
 
   const handleStart = () => {
     createConversation(mode);
@@ -18,7 +22,7 @@ export function WelcomeScreen() {
         <span className="text-3xl">🤖</span>
       </div>
 
-      <h1 className="text-2xl font-semibold text-foreground mb-2">Hi, MOUMOU~</h1>
+      <h1 className="text-2xl font-semibold text-foreground mb-2">Hi, {displayName}~</h1>
       <p className="text-muted-foreground text-sm mb-8">有什么可以帮助你的吗？</p>
 
       {/* Suggestion tags */}

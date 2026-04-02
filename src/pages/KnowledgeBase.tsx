@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -7,31 +7,95 @@ import { KnowledgeSidebar } from '@/components/knowledge/KnowledgeSidebar';
 import { UploadZone } from '@/components/knowledge/UploadZone';
 import { FileList } from '@/components/knowledge/FileList';
 import { FolderDropdown } from '@/components/knowledge/FolderDropdown';
-import { defaultFolders, mockFiles, type KnowledgeFolder } from '@/data/knowledgeFiles';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import type { KnowledgeFolder, KnowledgeFile } from '@/data/knowledgeFiles';
 
 export default function KnowledgeBase() {
   const navigate = useNavigate();
-  const [folders, setFolders] = useState<KnowledgeFolder[]>(defaultFolders);
+  const { user } = useAuth();
+  const [folders, setFolders] = useState<KnowledgeFolder[]>([
+    { id: 'all', name: '全部文件', count: 0 },
+    { id: 'recent', name: '最近', count: 0 },
+  ]);
+  const [files, setFiles] = useState<KnowledgeFile[]>([]);
   const [selectedFolder, setSelectedFolder] = useState('all');
   const [uploadFolder, setUploadFolder] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredFiles = mockFiles.filter(f => {
+  // Load folders from DB
+  useEffect(() => {
+    if (!user) return;
+    const loadFolders = async () => {
+      const { data } = await supabase
+        .from('knowledge_folders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at');
+      if (data) {
+        const dbFolders: KnowledgeFolder[] = data.map(f => ({ id: f.id, name: f.name, count: 0 }));
+        setFolders([
+          { id: 'all', name: '全部文件', count: 0 },
+          { id: 'recent', name: '最近', count: 0 },
+          ...dbFolders,
+        ]);
+      }
+    };
+    loadFolders();
+  }, [user]);
+
+  // Load files from DB
+  useEffect(() => {
+    if (!user) return;
+    const loadFiles = async () => {
+      const { data } = await supabase
+        .from('knowledge_files')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (data) {
+        const dbFiles: KnowledgeFile[] = data.map(f => ({
+          id: f.id,
+          name: f.name,
+          type: (f.type as KnowledgeFile['type']) || 'pdf',
+          folderId: f.folder_id || 'all',
+          status: (f.status as KnowledgeFile['status']) || 'summary_ready',
+          statusLabel: f.status_label || 'Summary ready',
+          date: new Date(f.created_at).toISOString().slice(0, 10),
+          size: f.size || undefined,
+        }));
+        setFiles(dbFiles);
+        // Update folder counts
+        setFolders(prev => prev.map(folder => {
+          if (folder.id === 'all') return { ...folder, count: dbFiles.length };
+          if (folder.id === 'recent') return { ...folder, count: dbFiles.slice(0, 10).length };
+          return { ...folder, count: dbFiles.filter(f => f.folderId === folder.id).length };
+        }));
+      }
+    };
+    loadFiles();
+  }, [user]);
+
+  const filteredFiles = files.filter(f => {
     if (selectedFolder !== 'all' && selectedFolder !== 'recent' && f.folderId !== selectedFolder) return false;
     if (searchQuery && !f.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
-  const handleAddFolder = (name: string) => {
-    const newFolder: KnowledgeFolder = {
-      id: `folder-${Date.now()}`,
-      name,
-      count: 0,
-    };
-    setFolders(prev => [...prev, newFolder]);
+  const handleAddFolder = async (name: string) => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('knowledge_folders')
+      .insert({ user_id: user.id, name })
+      .select()
+      .single();
+    if (data) {
+      setFolders(prev => [...prev, { id: data.id, name: data.name, count: 0 }]);
+    }
   };
 
-  const handleRenameFolder = (id: string, name: string) => {
+  const handleRenameFolder = async (id: string, name: string) => {
+    await supabase.from('knowledge_folders').update({ name }).eq('id', id);
     setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
   };
 
@@ -66,7 +130,6 @@ export default function KnowledgeBase() {
               className="h-9 pl-8 text-sm bg-secondary/50 border-0"
             />
           </div>
-          {/* Avatar */}
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/60 to-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
             M
           </div>
@@ -75,17 +138,12 @@ export default function KnowledgeBase() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-3xl mx-auto space-y-6">
-            {/* Folder dropdown */}
             <FolderDropdown
               folders={folders}
               selectedFolder={uploadFolder}
               onSelect={setUploadFolder}
             />
-
-            {/* Upload zone */}
             <UploadZone />
-
-            {/* File list */}
             <FileList files={filteredFiles} />
           </div>
         </div>

@@ -4,62 +4,157 @@ import { Button } from '@/components/ui/button';
 import { useChat } from '@/contexts/ChatContext';
 import { useMode } from '@/contexts/ModeContext';
 import { coaches } from '@/data/coaches';
+import { toast } from 'sonner';
 
-const mockResponses: Record<string, { content: string; tags?: string[] }> = {
-  strategy: {
-    content: '从战略角度分析，这个方向具有较大的市场潜力。建议先进行小规模验证，确认产品-市场契合度后再大规模投入。关键是要建立明确的竞争壁垒，避免陷入同质化竞争。',
-    tags: ['决策建议', '关键问题'],
-  },
-  risk: {
-    content: '⚠️ 需要关注以下风险点：\n1. 市场进入时机风险 - 当前市场环境存在不确定性\n2. 资金链风险 - 需确保有足够的现金流储备\n3. 团队能力匹配风险 - 评估现有团队是否具备执行能力',
-    tags: ['风险提示', '关键问题'],
-  },
-  product: {
-    content: '从产品视角来看，用户需求验证是第一优先级。建议采用MVP方式快速验证核心假设，通过用户访谈和数据分析迭代优化产品方案。',
-    tags: ['决策建议', '不同视角'],
-  },
-};
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+async function streamChat({
+  messages,
+  onDelta,
+  onDone,
+}: {
+  messages: { role: string; content: string }[];
+  onDelta: (text: string) => void;
+  onDone: () => void;
+}) {
+  const resp = await fetch(CHAT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (resp.status === 429) {
+    toast.error('请求过于频繁，请稍后再试');
+    throw new Error('Rate limited');
+  }
+  if (resp.status === 402) {
+    toast.error('AI 额度已用完，请充值');
+    throw new Error('Payment required');
+  }
+  if (!resp.ok || !resp.body) throw new Error('Failed to start stream');
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let textBuffer = '';
+  let streamDone = false;
+
+  while (!streamDone) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    textBuffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+      let line = textBuffer.slice(0, newlineIndex);
+      textBuffer = textBuffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') { streamDone = true; break; }
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+        if (content) onDelta(content);
+      } catch {
+        textBuffer = line + '\n' + textBuffer;
+        break;
+      }
+    }
+  }
+
+  // flush remaining
+  if (textBuffer.trim()) {
+    for (let raw of textBuffer.split('\n')) {
+      if (!raw) continue;
+      if (raw.endsWith('\r')) raw = raw.slice(0, -1);
+      if (raw.startsWith(':') || raw.trim() === '') continue;
+      if (!raw.startsWith('data: ')) continue;
+      const jsonStr = raw.slice(6).trim();
+      if (jsonStr === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+        if (content) onDelta(content);
+      } catch { /* ignore */ }
+    }
+  }
+  onDone();
+}
 
 export function ChatInput() {
   const [input, setInput] = useState('');
-  const { addMessage, createConversation, currentConversation } = useChat();
+  const [isStreaming, setIsStreaming] = useState(false);
+  const { addMessage, createConversation, currentConversation, updateLastAssistantMessage } = useChat();
   const { mode, selectedCoaches } = useMode();
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isStreaming) return;
 
-    if (!currentConversation) {
-      createConversation(mode, mode === 'decision' ? selectedCoaches : undefined);
-    }
+    const convId = currentConversation?.id ?? createConversation(mode, mode === 'decision' ? selectedCoaches : undefined);
+    const userContent = input.trim();
 
-    // Add user message
-    addMessage({ role: 'user', content: input.trim() });
-    const userInput = input.trim();
+    addMessage({ role: 'user', content: userContent }, convId);
     setInput('');
 
-    // Simulate response
     if (mode === 'decision') {
-      selectedCoaches.forEach((coachId, i) => {
-        setTimeout(() => {
-          const mock = mockResponses[coachId] || {
-            content: `作为${coaches.find(c => c.id === coachId)?.role}，我认为这是一个值得深入探讨的问题。让我从我的专业角度为你分析...`,
-            tags: ['决策建议'],
-          };
-          addMessage({
-            role: 'assistant',
-            content: mock.content,
-            coachId,
-            structuredTags: mock.tags,
+      // Decision mode: get responses from each coach
+      for (let i = 0; i < selectedCoaches.length; i++) {
+        const coachId = selectedCoaches[i];
+        const coach = coaches.find(c => c.id === coachId);
+        const coachRole = coach?.role || '教练';
+
+        addMessage({ role: 'assistant', content: '', coachId, isLoading: true }, convId);
+        setIsStreaming(true);
+
+        let accumulated = '';
+        try {
+          await streamChat({
+            messages: [
+              { role: 'system', content: `你是一位${coachRole}（${coach?.name}），${coach?.description}。请从你的专业角度分析用户的问题，给出有深度的建议。` },
+              { role: 'user', content: userContent },
+            ],
+            onDelta: (chunk) => {
+              accumulated += chunk;
+              updateLastAssistantMessage(accumulated, convId);
+            },
+            onDone: () => {},
           });
-        }, 1000 + i * 800);
-      });
+        } catch (e) {
+          if (!accumulated) {
+            updateLastAssistantMessage(`抱歉，AI 回复出错了。`, convId);
+          }
+        }
+      }
+      setIsStreaming(false);
     } else {
-      setTimeout(() => {
-        addMessage({
-          role: 'assistant',
-          content: `我理解你的问题关于「${userInput}」。让我从多个角度为你分析这个问题...\n\n这是一个很好的思考方向，建议你可以从以下几个方面入手：\n\n1. 明确目标和关键指标\n2. 分析当前资源和约束条件\n3. 制定可执行的行动计划`,
+      // Private mode: single AI response
+      addMessage({ role: 'assistant', content: '', isLoading: true }, convId);
+      setIsStreaming(true);
+
+      // Build conversation history from existing messages
+      const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
+      history.push({ role: 'user', content: userContent });
+
+      let accumulated = '';
+      try {
+        await streamChat({
+          messages: history,
+          onDelta: (chunk) => {
+            accumulated += chunk;
+            updateLastAssistantMessage(accumulated, convId);
+          },
+          onDone: () => setIsStreaming(false),
         });
-      }, 800);
+      } catch (e) {
+        setIsStreaming(false);
+        if (!accumulated) {
+          updateLastAssistantMessage('抱歉，AI 回复出错了，请稍后再试。', convId);
+        }
+      }
     }
   };
 
@@ -91,7 +186,7 @@ export function ChatInput() {
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isStreaming}
             className="h-8 w-8 rounded-full bg-foreground text-background hover:bg-foreground/90"
           >
             <Send className="h-3.5 w-3.5" />
