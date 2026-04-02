@@ -1,107 +1,76 @@
 
 
-# 管理后台接入 Supabase（Lovable Cloud）全量迁移方案
+# 四项需求实施方案
 
-## 概述
-将管理后台全部 13 组 Mock 数据迁移到 Supabase 数据库，涉及建表、RLS、Supabase Client 集成、以及 15 个页面组件的数据对接。
+## 需求 1：计费系统四表支持手动新增
 
-## 第一步：启用 Lovable Cloud
+当前状态：`PriceConfig`（Token价格）和 `PlanManage`（套餐）已有新增功能，但 `OrderList`（订单）和 `UsageRecords`（消费记录）只有查看，无新增入口。Token价格也缺少新增（只能编辑已有的）。
 
-项目当前未连接 Supabase，需要先通过 Lovable Cloud 自动创建后端。
+**改动：**
+- **PriceConfig.tsx**：增加"新增价格配置"对话框（输入 type、model、input_price、output_price、unit）；在 `useBilling.ts` 中新增 `useCreateTokenPrice` mutation
+- **OrderList.tsx**：增加"新增订单"对话框（输入 username、user_id、plan_name、amount、status、pay_method）；新增 `useCreateOrder` mutation
+- **UsageRecords.tsx**：增加"新增消费记录"对话框（输入 username、user_id、type、agent_name、tokens_input、tokens_output、cost）；新增 `useCreateUsageRecord` mutation
 
-## 第二步：数据库设计（建表 + RLS）
+## 需求 2：内容管理与 Web 端接通
 
-### 需要创建的表
+当前状态：Web 端的对话（ChatContext）和笔记（notesData）都是前端内存数据，管理后台的 `conversations` 和 `notes` 表是空的。
 
-| # | 表名 | 说明 | 主要字段 |
-|---|------|------|---------|
-| 1 | `profiles` | 前台用户（绑定 auth.users） | username, phone, email, avatar, status, token_used, token_balance |
-| 2 | `admin_users` | 后台管理员 | username, email, role, status, user_id(FK auth.users) |
-| 3 | `roles` | 角色定义 | name, description, permissions(jsonb) |
-| 4 | `agents` | AI Agent 配置 | name, name_en, avatar, perspective, tags(text[]), description, system_prompt, enabled, usage_count |
-| 5 | `conversations` | 对话记录 | user_id, agent_id, message_count, status, last_message |
-| 6 | `notes` | 用户笔记（审计用） | user_id, title, content, status |
-| 7 | `token_prices` | Token 价格配置 | type, model, input_price, output_price, unit |
-| 8 | `plans` | 套餐 | name, type, price, tokens, duration, features(text[]), status, subscribers |
-| 9 | `orders` | 订单 | user_id, plan_id, amount, status, pay_method |
-| 10 | `usage_records` | 消费流水 | user_id, type, agent_id, tokens_input, tokens_output, cost |
-| 11 | `memory_configs` | 用户记忆配置 | user_id, memory_count, max_memory, retention_days, auto_extract |
+**改动：**
+- **ChatContext.tsx** 改造：登录用户的对话持久化到 `conversations` 表，消息保存。未登录用户保持本地状态
+- 需要新建 `messages` 表存储对话消息（conversation_id, role, content, created_at），并添加 RLS 策略
+- **笔记页面**（InspirationNotes）：登录用户的笔记 CRUD 对接 `notes` 表
+- 管理后台的 ContentList/NotesManage 即可查看 Web 端产生的真实数据
+- 为 `conversations` 和 `notes` 表添加用户自己可 INSERT/SELECT 的 RLS 策略
 
-### 权限定义
-`permission_groups` 为静态配置数据，保留在前端代码中（不建表），因为它是 UI 展示用的权限树定义，不是动态数据。
+## 需求 3：插入 Agent 真实数据
 
-### RLS 策略
-- 管理后台表统一使用 `admin_users` 角色验证
-- 创建 `is_admin()` security definer 函数检查当前用户是否为管理员
-- 所有管理表：只有 admin 可 SELECT/INSERT/UPDATE/DELETE
+根据 `src/data/coaches.ts` 中的 6 个 Coach 数据，通过数据库 insert 工具插入到 `agents` 表：
 
-## 第三步：前端集成层
+| name | name_en | perspective | tags | description | system_prompt |
+|------|---------|-------------|------|-------------|---------------|
+| Sarah Chen | Strategy Coach | 战略 | 战略,商业,增长 | 专注于商业战略规划... | (生成合理提示词) |
+| Marcus Johnson | Risk Coach | 风险 | 风险,合规,安全 | 识别潜在风险... | ... |
+| Yuki Tanaka | Product Coach | 产品 | 产品,用户体验,创新 | 从产品设计... | ... |
+| Alex Rivera | Data Coach | 数据 | 数据,分析,洞察 | 用数据驱动... | ... |
+| Luna Park | Innovation Coach | 创新 | 创新,设计思维,趋势 | 激发创新思维... | ... |
+| David Kim | Operations Coach | 运营 | 运营,效率,执行 | 关注执行效率... | ... |
 
-### 新建文件
+## 需求 4：Web 端登录功能
 
-| 文件 | 说明 |
+当前状态：`Login.tsx` 是纯 UI，`handleLogin` 直接 `navigate("/")`，无真实认证。有验证码登录和密码登录两个 Tab。
+
+**改动：**
+- 简化为仅保留"手机号 + 密码"登录（移除验证码 Tab，因为 SMS 验证需要额外配置）
+- 用户输入手机号后，系统自动转换为 `{phone}@user.aiyou.com` 格式的邮箱调用 `supabase.auth.signInWithPassword`
+- 新增注册页面 `Register.tsx`：手机号 + 密码注册，同样用 `{phone}@user.aiyou.com` 格式
+- `handle_new_user` 触发器已存在，注册时自动创建 profiles 记录
+- 在 `profiles` 表中将 phone 字段填入真实手机号
+- Web 端路由守卫：`/` `/knowledge` `/meetings` `/notes` 需要登录，未登录跳转 `/login`
+- 管理后台使用 `@admin.com` 后缀，Web 用户使用 `@user.aiyou.com` 后缀，两套体系独立
+- 修改 `handle_new_user` 函数，从 `raw_user_meta_data` 中提取 phone 并写入 profiles
+
+## 数据库变更
+
+1. 新建 `messages` 表：`id, conversation_id, role, content, created_at`
+2. 为 `conversations` 添加用户自身的 INSERT/SELECT RLS 策略
+3. 为 `notes` 添加用户自身的 INSERT/SELECT/UPDATE/DELETE RLS 策略
+4. 为 `messages` 添加用户通过 conversation 关联的 RLS 策略
+5. 更新 `handle_new_user` 函数以支持 phone 字段
+
+## 文件变更清单
+
+| 操作 | 文件 |
 |------|------|
-| `src/integrations/supabase/client.ts` | Supabase Client 初始化（Lovable Cloud 自动生成） |
-| `src/integrations/supabase/types.ts` | 自动生成的类型定义 |
-| `src/admin/hooks/useAdminAuth.ts` | 管理员登录/登出/会话管理 hook |
-| `src/admin/hooks/useUsers.ts` | 用户 CRUD hook（useQuery/useMutation） |
-| `src/admin/hooks/useAgents.ts` | Agent CRUD hook |
-| `src/admin/hooks/useRoles.ts` | 角色 CRUD hook |
-| `src/admin/hooks/useContent.ts` | 对话/笔记查询 hook |
-| `src/admin/hooks/useBilling.ts` | 价格/套餐/订单/消费记录 hook |
-| `src/admin/hooks/useMemory.ts` | 记忆配置 hook |
-| `src/admin/hooks/useDashboard.ts` | Dashboard 统计数据 hook（聚合查询） |
-
-### 每个 hook 的模式
-```text
-useQuery  → 列表/详情查询（替代 useState(mockData)）
-useMutation → 创建/更新/删除（替代本地 setState）
-实时刷新 → invalidateQueries on mutation success
-```
-
-## 第四步：改造 15 个页面组件
-
-每个页面的改造模式一致：
-1. 移除 `import { mockXxx } from "@/admin/data/mockData"`
-2. 替换为 `import { useXxx } from "@/admin/hooks/useXxx"`
-3. 将 `useState(mockData)` 替换为 hook 返回的 `{ data, isLoading }`
-4. 增加 loading 状态和 empty 状态 UI
-5. CRUD 操作改为 mutation 调用
-
-| 页面 | 替换的 Mock | 对应 Hook |
-|------|------------|----------|
-| `Dashboard.tsx` | `dashboardStats` | `useDashboard` |
-| `UserList.tsx` | `mockUsers` | `useUsers` |
-| `UserDetail.tsx` | `mockUsers`, `mockUsageRecords` | `useUsers`, `useBilling` |
-| `RoleList.tsx` | `mockRoles` | `useRoles` |
-| `Permissions.tsx` | `mockRoles` | `useRoles` |
-| `AdminManage.tsx` | `mockAdmins`, `mockRoles` | `useAdminAuth`, `useRoles` |
-| `AgentList.tsx` | `mockAgents` | `useAgents` |
-| `AgentCreate.tsx` | _(无读取)_ | `useAgents` (insert) |
-| `ContentList.tsx` | `mockConversations` | `useContent` |
-| `ContentDetail.tsx` | `mockConversations` | `useContent` |
-| `NotesManage.tsx` | `mockNotes` | `useContent` |
-| `PriceConfig.tsx` | `mockTokenPrices` | `useBilling` |
-| `PlanManage.tsx` | `mockPlans` | `useBilling` |
-| `OrderList.tsx` | `mockOrders` | `useBilling` |
-| `UsageRecords.tsx` | `mockUsageRecords` | `useBilling` |
-| `MemoryManage.tsx` | `mockMemoryConfigs` | `useMemory` |
-
-## 第五步：管理员登录改为真实认证
-
-- `AdminLogin.tsx` 改为调用 `supabase.auth.signInWithPassword()`
-- `AdminApp.tsx` 增加登录态守卫：未登录跳转 `/admin/login`
-- `AdminHeader.tsx` 退出按钮调用 `supabase.auth.signOut()`
-
-## 第六步：清理
-
-- 删除 `src/admin/data/mockData.ts`（保留 `permissionGroups` 定义，移至独立文件如 `src/admin/data/permissions.ts`）
-
-## 技术要点
-
-- 使用 `@tanstack/react-query`（项目已有）管理服务端状态
-- Dashboard 统计数据通过 Supabase RPC 或聚合查询获取（count/sum）
-- 所有时间字段使用 `timestamptz`，前端格式化显示
-- tags/features 等数组字段使用 PostgreSQL `text[]` 类型
-- 需要先在 Supabase 中创建一个管理员用户用于登录
+| 编辑 | `src/admin/hooks/useBilling.ts` — 新增 3 个 create mutation |
+| 编辑 | `src/admin/pages/PriceConfig.tsx` — 添加新增对话框 |
+| 编辑 | `src/admin/pages/OrderList.tsx` — 添加新增对话框 |
+| 编辑 | `src/admin/pages/UsageRecords.tsx` — 添加新增对话框 |
+| 编辑 | `src/contexts/ChatContext.tsx` — 对接 Supabase 对话持久化 |
+| 编辑 | `src/pages/InspirationNotes.tsx` — 对接 notes 表 |
+| 编辑 | `src/pages/Login.tsx` — 接入真实认证 |
+| 新建 | `src/pages/Register.tsx` — 注册页 |
+| 新建 | `src/hooks/useAuth.ts` — Web 端认证 hook |
+| 编辑 | `src/App.tsx` — 添加注册路由 + 路由守卫 |
+| 新建 | migration — messages 表 + RLS 策略 |
+| 数据 | INSERT 6 条 agent 记录 |
 
