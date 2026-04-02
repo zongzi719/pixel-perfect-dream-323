@@ -193,6 +193,33 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          coach_id: string | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          coach_id?: string | null
+          content?: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Update: {
+          coach_id?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           content: string | null
