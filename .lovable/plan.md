@@ -1,99 +1,50 @@
 
 
-# AI Decision OS - Implementation Plan
+# Knowledge Base (知识库) Page Implementation
 
-## Overview
-Build an AI-powered dual-mode application: **Private Mode** (personal AI chat with memory) and **Decision Mode** (multi-agent collaborative decision system). The UI follows the uploaded Figma designs closely.
+## What to Build
 
-## Architecture
+A full-page knowledge base file management UI based on the 4 uploaded design screenshots. The page includes:
 
-```text
-src/
-├── components/
-│   ├── layout/
-│   │   ├── Sidebar.tsx              # Left sidebar (search, nav, history)
-│   │   └── AppLayout.tsx            # Main layout wrapper
-│   ├── chat/
-│   │   ├── ChatInput.tsx            # Input box with tools, voice, model selector
-│   │   ├── ChatMessage.tsx          # Single message (user or AI)
-│   │   ├── ChatArea.tsx             # Scrollable message list
-│   │   └── WelcomeScreen.tsx        # Welcome view for private mode
-│   ├── decision/
-│   │   ├── CoachSelector.tsx        # Coach selection cards grid
-│   │   ├── CoachCard.tsx            # Individual coach card
-│   │   ├── DecisionWelcome.tsx      # Decision mode welcome + coach picker
-│   │   ├── DecisionMessage.tsx      # Coach response with tag, toggle, structured output
-│   │   ├── CoachPanel.tsx           # Expandable coach list panel (top-right)
-│   │   └── CoachBadge.tsx           # Small coach avatar + name chip
-│   └── mode/
-│       └── ModeSelector.tsx         # "私人模式" / "决策模式" dropdown
-├── contexts/
-│   ├── ChatContext.tsx              # Chat state, messages, conversations
-│   └── ModeContext.tsx              # Current mode, selected coaches
-├── types/
-│   └── index.ts                     # Coach, Message, Conversation, Mode types
-├── data/
-│   └── coaches.ts                   # Predefined coach profiles
-├── pages/
-│   └── Index.tsx                    # Main page
-└── hooks/
-    └── useChat.ts                   # Chat logic hook
-```
+1. **Top bar**: Back arrow + "知识库" title, search input "查找文件", user avatar (right)
+2. **Left sidebar**: Navigation (全部文件, 最近), folder list (文件夹) with counts, "新建文件夹" action with inline rename
+3. **Main content area**:
+   - Folder selector dropdown ("上传到: 全部文件") showing all folders
+   - Drag-and-drop upload zone with dashed border, upload icon, text "把文件拖到这里或点击上传", subtitle, file type tags (PDF, DOC, PPT, 图片, 视频, 音频)
+   - Empty state: "上传您的第一份文档，即可开始使用人工智能驱动的知识管理。"
+   - File list: "最近7天" heading, file count "37 个文件", "管理" link, file cards with icon, name, status badge (Summary ready / Draft completed / Under review), date, "问问 AI" button
 
-## Implementation Steps
+## New Files
 
-### Step 1: Types, Data, and Layout Shell
-- Define TypeScript types: `Coach`, `Message`, `Conversation`, `AppMode`
-- Create coach profiles data (Sarah Chen/Strategy, Marcus Johnson/Risk, Yuki Tanaka/Innovation, etc.)
-- Build `AppLayout` with left sidebar and main content area
-- Build `Sidebar`: search input, nav items (新聊天, 知识库, 会议纪要, 灵感笔记), chat history grouped by date, settings button
-- Build `ModeSelector` dropdown at top center
+| File | Purpose |
+|------|---------|
+| `src/pages/KnowledgeBase.tsx` | Page component |
+| `src/components/knowledge/KnowledgeSidebar.tsx` | Left nav with folders |
+| `src/components/knowledge/UploadZone.tsx` | Drag-drop upload area |
+| `src/components/knowledge/FileList.tsx` | File list with cards |
+| `src/components/knowledge/FolderDropdown.tsx` | "上传到" folder picker dropdown |
+| `src/data/knowledgeFiles.ts` | Mock file data |
 
-### Step 2: Private Mode (Chat)
-- `WelcomeScreen`: avatar, greeting "Hi, MOUMOU~", subtitle, suggestion tags (决策/分析/规划/复盘)
-- `ChatInput`: text input with placeholder "咨询任何问题", voice button (waveform icon), + button, tools button, bottom bar with 默认/私有化 toggles and model selector "AIYOU-记忆模型"
-- `ChatArea`: scrollable message list with user messages (right-aligned, dark bg) and AI responses (left-aligned, with markdown rendering)
-- `ChatContext` for managing conversation state
+## Modified Files
 
-### Step 3: Decision Mode - Coach Selection
-- `DecisionWelcome`: grouped coach avatars at top, "欢迎来到决策模式~" heading, "选取多个视角来引导你的思考" subtitle
-- `CoachCard`: avatar, name, skill tags (战略/产品/增长), description, selectable with blue border + checkmark, "默认" badge for default coach
-- Selection counter "已选教练 1/3" with selected coach chips
-- "开启决策" CTA button (black, rounded)
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add `/knowledge` route |
+| `src/components/layout/Sidebar.tsx` | Navigate to `/knowledge` on 知识库 click |
 
-### Step 4: Decision Mode - Multi-Agent Chat
-- `DecisionMessage`: coach avatar + name + colored tag badge (战略=blue, 风险=orange), response text, structured output tags (决策建议, 风险提示, 关键问题, 不同视角) as colored outline badges
-- Toggle switch per coach to enable/disable from next round ("下一轮不参与决策" tooltip)
-- Disabled coach visual state (grayed toggle)
-- Notification bar when coach is removed: "Risk Coach 已停止分析"
-- `CoachPanel`: expandable panel (top-right) showing all available coaches with checkmarks, tags, descriptions; "选择教练 - 最多选择三个教练 (3/3)"
-- Loading state: "生成中..." with pause button
+## Key Design Details
 
-### Step 5: Chat Input Details
-- Shared input component between both modes
-- Voice recording button (toggles between waveform and mic icon)
-- Bottom toolbar: + (attach), filter/tools icon, "工具" label, right side: 默认/私有化 toggle chips, model dropdown "AIYOU-记忆模型"
+- **Background**: Same light lavender/blue gradient as main app
+- **Upload zone**: Dashed light blue border, centered content, rounded corners
+- **File cards**: White background, rounded, with colored file-type icons (red for PDF/DOC, orange for PPT), green status badges with checkmark
+- **"问问 AI" button**: Blue pill button with chat icon
+- **Folder rename**: Inline editable text field with blue highlight (as shown in screenshot 2)
+- **Folder dropdown**: White popover listing all folders + "新建文件夹" option
 
-### Step 6: Polish and State Management
-- Smooth transitions between modes
-- Chat history in sidebar updates per conversation
-- Responsive sidebar (collapsible via toggle icon)
-- Soft gradient background (light blue/lavender tint)
-- All text in Chinese as shown in designs
+## Technical Notes
 
-## Visual Design Details
-- **Background**: Light lavender/blue gradient (`#f0f0ff` to `#f8f8ff`)
-- **Sidebar**: White/transparent, ~220px wide
-- **Cards**: White with subtle shadow, rounded corners (12-16px)
-- **Selected card**: Light blue border + background tint
-- **Tags**: Outlined rounded pills; colors vary by domain (blue for 战略, orange for 风险, green for 产品)
-- **User messages**: Dark background (#1a1a2e or similar), white text, right-aligned
-- **AI messages**: Left-aligned, no background, with structured colored badges
-- **CTA button**: Black, full-width rounded, white text
-- **Font**: System Chinese font stack
-
-## Notes
-- This initial build will be a **frontend-only UI prototype** with mock data and simulated responses
-- AI integration (Lovable AI Gateway) can be added as a follow-up phase
-- No authentication or persistence in this phase
+- Frontend-only with mock data, no actual file upload logic
+- Use `react-router-dom` `useNavigate` for navigation between pages
+- File type icons differentiated by color (PDF=red, PPT=orange/coral)
+- Status types: `summary_ready`, `draft_completed`, `under_review` with corresponding green text labels
 
