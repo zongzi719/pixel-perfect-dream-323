@@ -7,6 +7,7 @@ import { ModeProvider } from "@/contexts/ModeContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import Index from "./pages/Index.tsx";
 import KnowledgeBase from "./pages/KnowledgeBase.tsx";
+import MeetingMinutes from "./pages/MeetingMinutes.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
