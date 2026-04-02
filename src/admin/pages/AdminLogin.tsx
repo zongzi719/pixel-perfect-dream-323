@@ -1,19 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAdminLogin } from "@/admin/hooks/useAdminAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Lock, User } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const loginMutation = useAdminLogin();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/admin");
+    loginMutation.mutate({ email, password }, {
+      onSuccess: () => navigate("/admin"),
+      onError: (err) => toast.error(err.message),
+    });
   };
 
   return (
@@ -30,13 +36,14 @@ export default function AdminLogin() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-neutral-300">用户名</Label>
+              <Label className="text-neutral-300">邮箱</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
                 <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="请输入用户名"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="请输入邮箱"
                   className="pl-10 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500 focus-visible:ring-white/20"
                 />
               </div>
@@ -54,8 +61,8 @@ export default function AdminLogin() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full bg-white text-neutral-950 hover:bg-neutral-200 font-medium">
-              登录
+            <Button type="submit" className="w-full bg-white text-neutral-950 hover:bg-neutral-200 font-medium" disabled={loginMutation.isPending}>
+              {loginMutation.isPending ? "登录中..." : "登录"}
             </Button>
           </form>
         </CardContent>

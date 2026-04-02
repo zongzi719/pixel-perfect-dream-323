@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { mockAdmins, mockRoles } from "@/admin/data/mockData";
+import { useAdminUsers } from "@/admin/hooks/useAdminAuth";
+import { useRoles } from "@/admin/hooks/useRoles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,10 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Loader2 } from "lucide-react";
 
 export default function AdminManage() {
   const [open, setOpen] = useState(false);
+  const { data: admins = [], isLoading } = useAdminUsers();
+  const { data: roles = [] } = useRoles();
+
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
 
   return (
     <div className="space-y-4">
@@ -30,7 +35,7 @@ export default function AdminManage() {
                 <Select>
                   <SelectTrigger><SelectValue placeholder="选择角色" /></SelectTrigger>
                   <SelectContent>
-                    {mockRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                    {roles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -53,14 +58,16 @@ export default function AdminManage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockAdmins.map(admin => (
+            {admins.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-neutral-500">暂无管理员</TableCell></TableRow>
+            ) : admins.map(admin => (
               <TableRow key={admin.id}>
                 <TableCell className="font-medium">{admin.username}</TableCell>
                 <TableCell>{admin.email}</TableCell>
                 <TableCell><Badge variant="outline">{admin.role}</Badge></TableCell>
                 <TableCell><Badge className="bg-neutral-900">{admin.status === 'active' ? '正常' : '禁用'}</Badge></TableCell>
-                <TableCell>{admin.lastLogin}</TableCell>
-                <TableCell>{admin.createdAt}</TableCell>
+                <TableCell>{admin.last_login ? new Date(admin.last_login).toLocaleDateString() : '-'}</TableCell>
+                <TableCell>{new Date(admin.created_at).toLocaleDateString()}</TableCell>
                 <TableCell><Button size="sm" variant="outline"><Edit className="h-3 w-3" /></Button></TableCell>
               </TableRow>
             ))}

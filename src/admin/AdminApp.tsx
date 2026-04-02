@@ -1,5 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AdminLayout } from "./layout/AdminLayout";
+import { useAdminSession, useCurrentAdmin } from "./hooks/useAdminAuth";
 import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import UserList from "./pages/UserList";
@@ -17,12 +18,28 @@ import PlanManage from "./pages/PlanManage";
 import OrderList from "./pages/OrderList";
 import UsageRecords from "./pages/UsageRecords";
 import MemoryManage from "./pages/MemoryManage";
+import { Loader2 } from "lucide-react";
+
+function AdminGuard() {
+  const { session, loading: sessionLoading } = useAdminSession();
+  const { data: admin, isLoading: adminLoading } = useCurrentAdmin();
+
+  if (sessionLoading || adminLoading) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
+  }
+
+  if (!session || !admin) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  return <AdminLayout />;
+}
 
 export default function AdminApp() {
   return (
     <Routes>
       <Route path="login" element={<AdminLogin />} />
-      <Route element={<AdminLayout />}>
+      <Route element={<AdminGuard />}>
         <Route index element={<Dashboard />} />
         <Route path="users" element={<UserList />} />
         <Route path="users/:id" element={<UserDetail />} />
