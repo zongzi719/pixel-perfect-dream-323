@@ -83,7 +83,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {navItems.map(item => (
           <button
             key={item.action}
-            onClick={item.action === 'new' ? handleNewChat : undefined}
+            onClick={item.action === 'new' ? handleNewChat : (item as any).route ? () => navigate((item as any).route) : undefined}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg transition-colors"
           >
             <item.icon className="h-4 w-4" />
