@@ -20,7 +20,7 @@ import UsageRecords from "./pages/UsageRecords";
 import MemoryManage from "./pages/MemoryManage";
 import { Loader2 } from "lucide-react";
 
-function AdminGuard({ children }: { children: React.ReactNode }) {
+function AdminGuard() {
   const { session, loading: sessionLoading } = useAdminSession();
   const { data: admin, isLoading: adminLoading } = useCurrentAdmin();
 
@@ -32,7 +32,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/admin/login" replace />;
   }
 
-  return <>{children}</>;
+  return <AdminLayout />;
 }
 
 export default function AdminApp() {
