@@ -24,9 +24,14 @@ export function useAuth() {
   }, []);
 
   const signIn = useCallback(async (phone: string, password: string) => {
-    const email = `${phone}@user.aiyou.com`;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    // Try user email first, then admin email
+    const userEmail = `${phone}@user.aiyou.com`;
+    const { error: userErr } = await supabase.auth.signInWithPassword({ email: userEmail, password });
+    if (!userErr) return;
+    
+    const adminEmail = `${phone}@admin.com`;
+    const { error: adminErr } = await supabase.auth.signInWithPassword({ email: adminEmail, password });
+    if (adminErr) throw adminErr;
   }, []);
 
   const signUp = useCallback(async (phone: string, password: string) => {
