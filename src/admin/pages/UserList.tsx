@@ -1,24 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { mockUsers } from "@/admin/data/mockData";
+import { useUsers, useToggleUserStatus } from "@/admin/hooks/useUsers";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Ban, CheckCircle } from "lucide-react";
+import { Search, Ban, CheckCircle, Loader2 } from "lucide-react";
 
 export default function UserList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [users, setUsers] = useState(mockUsers);
+  const { data: users = [], isLoading } = useUsers();
+  const toggleStatus = useToggleUserStatus();
 
   const filtered = users.filter(u =>
-    u.username.includes(search) || u.phone.includes(search) || u.email.includes(search)
+    u.username.includes(search) || (u.phone ?? "").includes(search) || (u.email ?? "").includes(search)
   );
 
-  const toggleBan = (id: string) => {
-    setUsers(users.map(u => u.id === id ? { ...u, status: u.status === 'active' ? 'banned' as const : 'active' as const } : u));
-  };
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -43,7 +44,9 @@ export default function UserList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map(user => (
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center text-neutral-500">暂无数据</TableCell></TableRow>
+            ) : filtered.map(user => (
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.username}</TableCell>
                 <TableCell>{user.phone}</TableCell>
@@ -53,13 +56,13 @@ export default function UserList() {
                     {user.status === 'active' ? '正常' : '封禁'}
                   </Badge>
                 </TableCell>
-                <TableCell>{user.tokenUsed.toLocaleString()}</TableCell>
-                <TableCell>{user.tokenBalance.toLocaleString()}</TableCell>
-                <TableCell>{user.createdAt}</TableCell>
+                <TableCell>{user.token_used.toLocaleString()}</TableCell>
+                <TableCell>{user.token_balance.toLocaleString()}</TableCell>
+                <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/admin/users/${user.id}`)}>详情</Button>
-                    <Button size="sm" variant={user.status === 'active' ? 'destructive' : 'default'} onClick={() => toggleBan(user.id)}>
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/admin/users/${user.user_id}`)}>详情</Button>
+                    <Button size="sm" variant={user.status === 'active' ? 'destructive' : 'default'} onClick={() => toggleStatus.mutate({ userId: user.user_id, status: user.status })}>
                       {user.status === 'active' ? <><Ban className="h-3 w-3 mr-1" />封禁</> : <><CheckCircle className="h-3 w-3 mr-1" />解封</>}
                     </Button>
                   </div>

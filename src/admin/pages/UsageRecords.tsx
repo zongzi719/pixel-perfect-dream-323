@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { mockUsageRecords } from "@/admin/data/mockData";
+import { useUsageRecords } from "@/admin/hooks/useBilling";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 
 export default function UsageRecords() {
   const [search, setSearch] = useState("");
+  const { data: records = [], isLoading } = useUsageRecords();
 
-  const filtered = mockUsageRecords.filter(r => r.username.includes(search) || r.agentName.includes(search));
+  const filtered = records.filter(r => (r.username ?? "").includes(search) || (r.agent_name ?? "").includes(search));
+
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
 
   return (
     <div className="space-y-4">
@@ -29,15 +32,17 @@ export default function UsageRecords() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map(r => (
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-neutral-500">暂无记录</TableCell></TableRow>
+            ) : filtered.map(r => (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{r.username}</TableCell>
                 <TableCell>{r.type}</TableCell>
-                <TableCell>{r.agentName}</TableCell>
-                <TableCell>{r.tokensInput.toLocaleString()}</TableCell>
-                <TableCell>{r.tokensOutput.toLocaleString()}</TableCell>
+                <TableCell>{r.agent_name}</TableCell>
+                <TableCell>{r.tokens_input.toLocaleString()}</TableCell>
+                <TableCell>{r.tokens_output.toLocaleString()}</TableCell>
                 <TableCell>¥{r.cost.toFixed(3)}</TableCell>
-                <TableCell>{r.createdAt}</TableCell>
+                <TableCell>{new Date(r.created_at).toLocaleString()}</TableCell>
               </TableRow>
             ))}
           </TableBody>

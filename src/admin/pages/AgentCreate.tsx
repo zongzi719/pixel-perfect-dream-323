@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCreateAgent } from "@/admin/hooks/useAgents";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 
 export default function AgentCreate() {
   const navigate = useNavigate();
+  const createAgent = useCreateAgent();
   const [name, setName] = useState("");
   const [nameEn, setNameEn] = useState("");
   const [perspective, setPerspective] = useState("");
@@ -19,8 +21,17 @@ export default function AgentCreate() {
   const [systemPrompt, setSystemPrompt] = useState("");
 
   const handleSave = () => {
-    toast.success("Agent创建成功");
-    navigate("/admin/agents");
+    createAgent.mutate({
+      name,
+      name_en: nameEn,
+      perspective,
+      tags: tags.split(",").map(t => t.trim()).filter(Boolean),
+      description,
+      system_prompt: systemPrompt,
+    }, {
+      onSuccess: () => { toast.success("Agent创建成功"); navigate("/admin/agents"); },
+      onError: (err) => toast.error(err.message),
+    });
   };
 
   return (
@@ -50,7 +61,7 @@ export default function AgentCreate() {
           <div><Label>描述</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Agent的功能描述" rows={3} /></div>
           <div><Label>System Prompt</Label><Textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder="Agent的系统提示词" rows={6} /></div>
           <div className="flex gap-3">
-            <Button className="bg-neutral-900 hover:bg-neutral-800" onClick={handleSave}>创建Agent</Button>
+            <Button className="bg-neutral-900 hover:bg-neutral-800" onClick={handleSave} disabled={createAgent.isPending}>创建Agent</Button>
             <Button variant="outline" onClick={() => navigate("/admin/agents")}>取消</Button>
           </div>
         </CardContent>

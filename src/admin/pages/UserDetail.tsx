@@ -1,20 +1,21 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { mockUsers, mockUsageRecords } from "@/admin/data/mockData";
+import { useUser } from "@/admin/hooks/useUsers";
+import { useUserUsageRecords } from "@/admin/hooks/useBilling";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function UserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const user = mockUsers.find(u => u.id === id);
+  const { data: user, isLoading } = useUser(id);
+  const { data: userRecords = [] } = useUserUsageRecords(id);
 
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
   if (!user) return <div className="text-center py-20 text-neutral-500">用户不存在</div>;
-
-  const userRecords = mockUsageRecords.filter(r => r.userId === user.id);
 
   return (
     <div className="space-y-6">
@@ -25,7 +26,7 @@ export default function UserDetail() {
       <Card className="border-neutral-200">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-neutral-900 flex items-center justify-center text-white text-xl font-bold">{user.avatar}</div>
+            <div className="h-16 w-16 rounded-full bg-neutral-900 flex items-center justify-center text-white text-xl font-bold">{user.avatar || user.username.charAt(0)}</div>
             <div>
               <h2 className="text-xl font-bold text-neutral-900">{user.username}</h2>
               <p className="text-neutral-500">{user.email} · {user.phone}</p>
@@ -45,10 +46,10 @@ export default function UserDetail() {
         <TabsContent value="info">
           <Card className="border-neutral-200">
             <CardContent className="p-6 grid grid-cols-2 gap-4">
-              <div><p className="text-sm text-neutral-500">注册时间</p><p className="font-medium">{user.createdAt}</p></div>
-              <div><p className="text-sm text-neutral-500">最后登录</p><p className="font-medium">{user.lastLogin}</p></div>
-              <div><p className="text-sm text-neutral-500">Token已用</p><p className="font-medium">{user.tokenUsed.toLocaleString()}</p></div>
-              <div><p className="text-sm text-neutral-500">Token余额</p><p className="font-medium">{user.tokenBalance.toLocaleString()}</p></div>
+              <div><p className="text-sm text-neutral-500">注册时间</p><p className="font-medium">{new Date(user.created_at).toLocaleDateString()}</p></div>
+              <div><p className="text-sm text-neutral-500">最后更新</p><p className="font-medium">{new Date(user.updated_at).toLocaleDateString()}</p></div>
+              <div><p className="text-sm text-neutral-500">Token已用</p><p className="font-medium">{user.token_used.toLocaleString()}</p></div>
+              <div><p className="text-sm text-neutral-500">Token余额</p><p className="font-medium">{user.token_balance.toLocaleString()}</p></div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -72,11 +73,11 @@ export default function UserDetail() {
                   ) : userRecords.map(r => (
                     <TableRow key={r.id}>
                       <TableCell>{r.type}</TableCell>
-                      <TableCell>{r.agentName}</TableCell>
-                      <TableCell>{r.tokensInput.toLocaleString()}</TableCell>
-                      <TableCell>{r.tokensOutput.toLocaleString()}</TableCell>
+                      <TableCell>{r.agent_name}</TableCell>
+                      <TableCell>{r.tokens_input.toLocaleString()}</TableCell>
+                      <TableCell>{r.tokens_output.toLocaleString()}</TableCell>
                       <TableCell>¥{r.cost.toFixed(3)}</TableCell>
-                      <TableCell>{r.createdAt}</TableCell>
+                      <TableCell>{new Date(r.created_at).toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -1,18 +1,30 @@
 import { useState } from "react";
-import { mockRoles } from "@/admin/data/mockData";
+import { useRoles, useCreateRole, useDeleteRole } from "@/admin/hooks/useRoles";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 
 export default function RoleList() {
-  const [roles, setRoles] = useState(mockRoles);
+  const { data: roles = [], isLoading } = useRoles();
+  const createRole = useCreateRole();
+  const deleteRole = useDeleteRole();
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const handleCreate = () => {
+    createRole.mutate({ name, description, permissions: [] as unknown as Json }, {
+      onSuccess: () => { setOpen(false); setName(""); setDescription(""); }
+    });
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
 
   return (
     <div className="space-y-4">
@@ -25,9 +37,9 @@ export default function RoleList() {
           <DialogContent>
             <DialogHeader><DialogTitle>新建角色</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>角色名称</Label><Input placeholder="请输入角色名称" /></div>
-              <div><Label>描述</Label><Textarea placeholder="请输入角色描述" /></div>
-              <Button className="w-full bg-neutral-900" onClick={() => setOpen(false)}>创建</Button>
+              <div><Label>角色名称</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="请输入角色名称" /></div>
+              <div><Label>描述</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="请输入角色描述" /></div>
+              <Button className="w-full bg-neutral-900" onClick={handleCreate} disabled={createRole.isPending}>创建</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -45,21 +57,26 @@ export default function RoleList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {roles.map(role => (
-              <TableRow key={role.id}>
-                <TableCell className="font-medium">{role.name}</TableCell>
-                <TableCell>{role.description}</TableCell>
-                <TableCell><Badge variant="outline">{role.permissions.length === 1 && role.permissions[0] === 'all' ? '全部' : role.permissions.length}</Badge></TableCell>
-                <TableCell>{role.memberCount}</TableCell>
-                <TableCell>{role.createdAt}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline"><Edit className="h-3 w-3" /></Button>
-                    <Button size="sm" variant="outline" className="text-red-600"><Trash2 className="h-3 w-3" /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {roles.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-neutral-500">暂无角色</TableCell></TableRow>
+            ) : roles.map(role => {
+              const perms = Array.isArray(role.permissions) ? role.permissions : [];
+              return (
+                <TableRow key={role.id}>
+                  <TableCell className="font-medium">{role.name}</TableCell>
+                  <TableCell>{role.description}</TableCell>
+                  <TableCell><Badge variant="outline">{perms.length === 1 && perms[0] === 'all' ? '全部' : perms.length}</Badge></TableCell>
+                  <TableCell>{role.member_count}</TableCell>
+                  <TableCell>{new Date(role.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline"><Edit className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="outline" className="text-red-600" onClick={() => deleteRole.mutate(role.id)}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

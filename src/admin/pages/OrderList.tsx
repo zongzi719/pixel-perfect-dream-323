@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { mockOrders } from "@/admin/data/mockData";
+import { useOrders } from "@/admin/hooks/useBilling";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 
-const statusMap = { paid: '已支付', pending: '待支付', refunded: '已退款' };
-const statusClass = { paid: 'bg-neutral-900', pending: 'bg-amber-500', refunded: 'bg-neutral-400' };
+const statusMap: Record<string, string> = { paid: '已支付', pending: '待支付', refunded: '已退款' };
+const statusClass: Record<string, string> = { paid: 'bg-neutral-900', pending: 'bg-amber-500', refunded: 'bg-neutral-400' };
 
 export default function OrderList() {
   const [search, setSearch] = useState("");
+  const { data: orders = [], isLoading } = useOrders();
 
-  const filtered = mockOrders.filter(o => o.username.includes(search) || o.planName.includes(search));
+  const filtered = orders.filter(o => (o.username ?? "").includes(search) || (o.plan_name ?? "").includes(search));
+
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
 
   return (
     <div className="space-y-4">
@@ -33,15 +36,17 @@ export default function OrderList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map(order => (
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-neutral-500">暂无订单</TableCell></TableRow>
+            ) : filtered.map(order => (
               <TableRow key={order.id}>
-                <TableCell className="font-mono text-sm">{order.id}</TableCell>
+                <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}</TableCell>
                 <TableCell>{order.username}</TableCell>
-                <TableCell>{order.planName}</TableCell>
+                <TableCell>{order.plan_name}</TableCell>
                 <TableCell className="font-medium">¥{order.amount}</TableCell>
-                <TableCell><Badge className={statusClass[order.status]}>{statusMap[order.status]}</Badge></TableCell>
-                <TableCell>{order.payMethod}</TableCell>
-                <TableCell>{order.createdAt}</TableCell>
+                <TableCell><Badge className={statusClass[order.status] || ''}>{statusMap[order.status] || order.status}</Badge></TableCell>
+                <TableCell>{order.pay_method}</TableCell>
+                <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
               </TableRow>
             ))}
           </TableBody>

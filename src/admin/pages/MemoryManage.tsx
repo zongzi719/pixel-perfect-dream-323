@@ -1,20 +1,18 @@
-import { useState } from "react";
-import { mockMemoryConfigs } from "@/admin/data/mockData";
+import { useMemoryConfigs, useToggleAutoExtract } from "@/admin/hooks/useMemory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MemoryManage() {
-  const [configs, setConfigs] = useState(mockMemoryConfigs);
+  const { data: configs = [], isLoading } = useMemoryConfigs();
+  const toggleAutoExtract = useToggleAutoExtract();
 
-  const toggleAutoExtract = (id: string) => {
-    setConfigs(configs.map(c => c.id === id ? { ...c, autoExtract: !c.autoExtract } : c));
-  };
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-neutral-400" /></div>;
 
   return (
     <div className="space-y-6">
@@ -54,18 +52,20 @@ export default function MemoryManage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {configs.map(c => (
+              {configs.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-neutral-500">暂无数据</TableCell></TableRow>
+              ) : configs.map(c => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.username}</TableCell>
-                  <TableCell>{c.memoryCount}/{c.maxMemory}</TableCell>
+                  <TableCell>{c.memory_count}/{c.max_memory}</TableCell>
                   <TableCell className="w-32">
-                    <Progress value={(c.memoryCount / c.maxMemory) * 100} className="h-2" />
+                    <Progress value={(c.memory_count / c.max_memory) * 100} className="h-2" />
                   </TableCell>
-                  <TableCell>{c.retentionDays}天</TableCell>
+                  <TableCell>{c.retention_days}天</TableCell>
                   <TableCell>
-                    <Switch checked={c.autoExtract} onCheckedChange={() => toggleAutoExtract(c.id)} />
+                    <Switch checked={c.auto_extract} onCheckedChange={() => toggleAutoExtract.mutate({ id: c.id, auto_extract: c.auto_extract })} />
                   </TableCell>
-                  <TableCell>{c.lastUpdated}</TableCell>
+                  <TableCell>{new Date(c.last_updated).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
