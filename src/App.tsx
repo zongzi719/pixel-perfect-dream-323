@@ -11,6 +11,7 @@ import MeetingMinutes from "./pages/MeetingMinutes.tsx";
 import InspirationNotes from "./pages/InspirationNotes.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Login from "./pages/Login.tsx";
+import AdminApp from "./admin/AdminApp";
 
 const queryClient = new QueryClient();
 
