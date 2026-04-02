@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, BookOpen, FileText, Lightbulb, Settings, ChevronLeft, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ interface SidebarProps {
 
 const navItems = [
   { icon: Plus, label: '新聊天', action: 'new' },
-  { icon: BookOpen, label: '知识库', action: 'knowledge' },
+  { icon: BookOpen, label: '知识库', action: 'knowledge', route: '/knowledge' },
   { icon: FileText, label: '会议纪要', action: 'minutes' },
   { icon: Lightbulb, label: '灵感笔记', action: 'notes' },
 ];
@@ -22,6 +23,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [search, setSearch] = useState('');
   const { conversations, currentConversation, setCurrentConversation, createConversation } = useChat();
   const { mode } = useMode();
+  const navigate = useNavigate();
 
   const handleNewChat = () => {
     createConversation(mode);
@@ -40,7 +42,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             key={item.action}
             variant="ghost"
             size="icon"
-            onClick={item.action === 'new' ? handleNewChat : undefined}
+            onClick={item.action === 'new' ? handleNewChat : (item as any).route ? () => navigate((item as any).route) : undefined}
           >
             <item.icon className="h-4 w-4" />
           </Button>
@@ -81,7 +83,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {navItems.map(item => (
           <button
             key={item.action}
-            onClick={item.action === 'new' ? handleNewChat : undefined}
+            onClick={item.action === 'new' ? handleNewChat : (item as any).route ? () => navigate((item as any).route) : undefined}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg transition-colors"
           >
             <item.icon className="h-4 w-4" />
