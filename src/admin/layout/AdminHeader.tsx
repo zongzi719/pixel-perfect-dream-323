@@ -1,6 +1,9 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
+import { useCurrentAdmin, useAdminLogout } from "@/admin/hooks/useAdminAuth";
+import { LogOut } from "lucide-react";
 
 const routeTitles: Record<string, string> = {
   "/admin": "Dashboard",
@@ -22,6 +25,8 @@ const routeTitles: Record<string, string> = {
 export function AdminHeader() {
   const location = useLocation();
   const title = routeTitles[location.pathname] || "管理后台";
+  const { data: admin } = useCurrentAdmin();
+  const logout = useAdminLogout();
 
   return (
     <header className="h-14 flex items-center justify-between border-b border-neutral-200 bg-white px-4">
@@ -30,10 +35,13 @@ export function AdminHeader() {
         <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-neutral-500">管理员A</span>
+        <span className="text-sm text-neutral-500">{admin?.username || "管理员"}</span>
         <Avatar className="h-8 w-8">
-          <AvatarFallback className="bg-neutral-900 text-white text-xs">A</AvatarFallback>
+          <AvatarFallback className="bg-neutral-900 text-white text-xs">{admin?.username?.charAt(0) || "A"}</AvatarFallback>
         </Avatar>
+        <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="text-neutral-500 hover:text-neutral-900">
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );
