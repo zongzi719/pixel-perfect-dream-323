@@ -1,115 +1,107 @@
 
 
-# 管理后台实施方案
+# 管理后台接入 Supabase（Lovable Cloud）全量迁移方案
 
 ## 概述
-创建完全独立的管理后台子应用，路由前缀 `/admin`，拥有独立登录页、独立布局（shadcn Sidebar）、黑白主色调。一次性搭建全部 7 个模块的页面框架（含 Mock 数据）。
+将管理后台全部 13 组 Mock 数据迁移到 Supabase 数据库，涉及建表、RLS、Supabase Client 集成、以及 15 个页面组件的数据对接。
 
-## 架构
+## 第一步：启用 Lovable Cloud
 
+项目当前未连接 Supabase，需要先通过 Lovable Cloud 自动创建后端。
+
+## 第二步：数据库设计（建表 + RLS）
+
+### 需要创建的表
+
+| # | 表名 | 说明 | 主要字段 |
+|---|------|------|---------|
+| 1 | `profiles` | 前台用户（绑定 auth.users） | username, phone, email, avatar, status, token_used, token_balance |
+| 2 | `admin_users` | 后台管理员 | username, email, role, status, user_id(FK auth.users) |
+| 3 | `roles` | 角色定义 | name, description, permissions(jsonb) |
+| 4 | `agents` | AI Agent 配置 | name, name_en, avatar, perspective, tags(text[]), description, system_prompt, enabled, usage_count |
+| 5 | `conversations` | 对话记录 | user_id, agent_id, message_count, status, last_message |
+| 6 | `notes` | 用户笔记（审计用） | user_id, title, content, status |
+| 7 | `token_prices` | Token 价格配置 | type, model, input_price, output_price, unit |
+| 8 | `plans` | 套餐 | name, type, price, tokens, duration, features(text[]), status, subscribers |
+| 9 | `orders` | 订单 | user_id, plan_id, amount, status, pay_method |
+| 10 | `usage_records` | 消费流水 | user_id, type, agent_id, tokens_input, tokens_output, cost |
+| 11 | `memory_configs` | 用户记忆配置 | user_id, memory_count, max_memory, retention_days, auto_extract |
+
+### 权限定义
+`permission_groups` 为静态配置数据，保留在前端代码中（不建表），因为它是 UI 展示用的权限树定义，不是动态数据。
+
+### RLS 策略
+- 管理后台表统一使用 `admin_users` 角色验证
+- 创建 `is_admin()` security definer 函数检查当前用户是否为管理员
+- 所有管理表：只有 admin 可 SELECT/INSERT/UPDATE/DELETE
+
+## 第三步：前端集成层
+
+### 新建文件
+
+| 文件 | 说明 |
+|------|------|
+| `src/integrations/supabase/client.ts` | Supabase Client 初始化（Lovable Cloud 自动生成） |
+| `src/integrations/supabase/types.ts` | 自动生成的类型定义 |
+| `src/admin/hooks/useAdminAuth.ts` | 管理员登录/登出/会话管理 hook |
+| `src/admin/hooks/useUsers.ts` | 用户 CRUD hook（useQuery/useMutation） |
+| `src/admin/hooks/useAgents.ts` | Agent CRUD hook |
+| `src/admin/hooks/useRoles.ts` | 角色 CRUD hook |
+| `src/admin/hooks/useContent.ts` | 对话/笔记查询 hook |
+| `src/admin/hooks/useBilling.ts` | 价格/套餐/订单/消费记录 hook |
+| `src/admin/hooks/useMemory.ts` | 记忆配置 hook |
+| `src/admin/hooks/useDashboard.ts` | Dashboard 统计数据 hook（聚合查询） |
+
+### 每个 hook 的模式
 ```text
-/admin/login          → 管理后台登录页
-/admin                → Dashboard（数据统计）
-/admin/users          → 用户列表
-/admin/users/:id      → 用户详情（Tab）
-/admin/roles          → 角色列表
-/admin/permissions    → 权限配置
-/admin/admins         → 管理员管理
-/admin/agents         → Agent列表
-/admin/agents/new     → 创建Agent
-/admin/content        → 对话记录列表
-/admin/content/:id    → 内容详情
-/admin/notes-manage   → 笔记内容管理
-/admin/billing/prices → 价格配置
-/admin/billing/plans  → 套餐管理
-/admin/billing/orders → 订单列表
-/admin/billing/usage  → 消费记录
-/admin/memory         → 用户记忆管理
+useQuery  → 列表/详情查询（替代 useState(mockData)）
+useMutation → 创建/更新/删除（替代本地 setState）
+实时刷新 → invalidateQueries on mutation success
 ```
 
-## 新建文件清单
+## 第四步：改造 15 个页面组件
 
-### 布局 & 通用
-| 文件 | 说明 |
-|------|------|
-| `src/admin/AdminApp.tsx` | 管理后台入口，包含 AdminLayout + 子路由 |
-| `src/admin/layout/AdminLayout.tsx` | shadcn SidebarProvider + 主内容区 |
-| `src/admin/layout/AdminSidebar.tsx` | 侧边栏导航（黑色背景、白色文字、分组菜单） |
-| `src/admin/layout/AdminHeader.tsx` | 顶栏（面包屑、用户头像、退出） |
+每个页面的改造模式一致：
+1. 移除 `import { mockXxx } from "@/admin/data/mockData"`
+2. 替换为 `import { useXxx } from "@/admin/hooks/useXxx"`
+3. 将 `useState(mockData)` 替换为 hook 返回的 `{ data, isLoading }`
+4. 增加 loading 状态和 empty 状态 UI
+5. CRUD 操作改为 mutation 调用
 
-### 登录
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/AdminLogin.tsx` | 独立登录页，黑白风格，账号密码登录 |
+| 页面 | 替换的 Mock | 对应 Hook |
+|------|------------|----------|
+| `Dashboard.tsx` | `dashboardStats` | `useDashboard` |
+| `UserList.tsx` | `mockUsers` | `useUsers` |
+| `UserDetail.tsx` | `mockUsers`, `mockUsageRecords` | `useUsers`, `useBilling` |
+| `RoleList.tsx` | `mockRoles` | `useRoles` |
+| `Permissions.tsx` | `mockRoles` | `useRoles` |
+| `AdminManage.tsx` | `mockAdmins`, `mockRoles` | `useAdminAuth`, `useRoles` |
+| `AgentList.tsx` | `mockAgents` | `useAgents` |
+| `AgentCreate.tsx` | _(无读取)_ | `useAgents` (insert) |
+| `ContentList.tsx` | `mockConversations` | `useContent` |
+| `ContentDetail.tsx` | `mockConversations` | `useContent` |
+| `NotesManage.tsx` | `mockNotes` | `useContent` |
+| `PriceConfig.tsx` | `mockTokenPrices` | `useBilling` |
+| `PlanManage.tsx` | `mockPlans` | `useBilling` |
+| `OrderList.tsx` | `mockOrders` | `useBilling` |
+| `UsageRecords.tsx` | `mockUsageRecords` | `useBilling` |
+| `MemoryManage.tsx` | `mockMemoryConfigs` | `useMemory` |
 
-### 数据统计（P1）
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/Dashboard.tsx` | 概览卡片 + 图表（用户增长、Token消耗、收入、功能使用率） |
+## 第五步：管理员登录改为真实认证
 
-### 用户管理
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/UserList.tsx` | 表格 + 搜索筛选 + 封禁操作 |
-| `src/admin/pages/UserDetail.tsx` | Tab结构（基本信息/行为/消耗/Token统计） |
+- `AdminLogin.tsx` 改为调用 `supabase.auth.signInWithPassword()`
+- `AdminApp.tsx` 增加登录态守卫：未登录跳转 `/admin/login`
+- `AdminHeader.tsx` 退出按钮调用 `supabase.auth.signOut()`
 
-### 权限系统
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/RoleList.tsx` | 角色列表 + CRUD |
-| `src/admin/pages/Permissions.tsx` | 权限树配置（页面级/操作级） |
-| `src/admin/pages/AdminManage.tsx` | 管理员列表 + 角色绑定 |
+## 第六步：清理
 
-### Agent管理
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/AgentList.tsx` | Agent卡片/表格列表 + 启用/禁用 |
-| `src/admin/pages/AgentCreate.tsx` | 创建/编辑表单（名称/头像/设定/视角/标签） |
-
-### 内容管理
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/ContentList.tsx` | 对话记录列表 + 违规标记 |
-| `src/admin/pages/ContentDetail.tsx` | 对话详情 + 审计操作 |
-| `src/admin/pages/NotesManage.tsx` | 笔记内容管理列表 |
-
-### 计费系统
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/PriceConfig.tsx` | Token价格配置（输入/输出/语音） |
-| `src/admin/pages/PlanManage.tsx` | 套餐管理（订阅/次卡 CRUD） |
-| `src/admin/pages/OrderList.tsx` | 订单列表 |
-| `src/admin/pages/UsageRecords.tsx` | 消费流水 |
-
-### 用户记忆
-| 文件 | 说明 |
-|------|------|
-| `src/admin/pages/MemoryManage.tsx` | 记忆配置/绑定/检索规则 |
-
-### Mock数据
-| 文件 | 说明 |
-|------|------|
-| `src/admin/data/mockData.ts` | 所有模块的 Mock 数据 |
-
-## 修改文件
-
-| 文件 | 变更 |
-|------|------|
-| `src/App.tsx` | 添加 `/admin/*` 路由指向 AdminApp |
-| `src/index.css` | 追加管理后台暗色主题 CSS 变量（`.admin` class 作用域） |
-
-## 设计规范
-
-- **主色调**：黑白为主，侧边栏深色（`#0a0a0a`），内容区白/浅灰
-- **强调色**：使用现有 primary 蓝色做按钮/链接高亮
-- **组件**：全部使用 shadcn/ui（Table, Card, Dialog, Tabs, Form, Badge, Button 等）
-- **侧边栏**：使用 shadcn Sidebar 组件，`collapsible="icon"` 模式
-- **图表**：使用 recharts（shadcn chart 组件封装）
+- 删除 `src/admin/data/mockData.ts`（保留 `permissionGroups` 定义，移至独立文件如 `src/admin/data/permissions.ts`）
 
 ## 技术要点
 
-- 管理后台登录为纯前端 Mock（点击后存 `adminAuthenticated` 到 state，跳转 `/admin`）
-- 所有页面使用 Mock 数据填充，数据结构预留后端接入字段
-- AdminLayout 包裹所有 `/admin/*` 子路由，AdminLogin 单独不使用 Layout
-- 侧边栏分组：数据总览 / 用户管理 / 内容管理 / Agent管理 / 计费系统 / 记忆管理 / 系统设置
+- 使用 `@tanstack/react-query`（项目已有）管理服务端状态
+- Dashboard 统计数据通过 Supabase RPC 或聚合查询获取（count/sum）
+- 所有时间字段使用 `timestamptz`，前端格式化显示
+- tags/features 等数组字段使用 PostgreSQL `text[]` 类型
+- 需要先在 Supabase 中创建一个管理员用户用于登录
 
