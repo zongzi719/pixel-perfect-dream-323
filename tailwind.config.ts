@@ -57,6 +57,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "user-bubble": "hsl(var(--user-bubble))",
+        "user-bubble-foreground": "hsl(var(--user-bubble-foreground))",
+        coach: {
+          strategy: "hsl(var(--coach-strategy))",
+          risk: "hsl(var(--coach-risk))",
+          product: "hsl(var(--coach-product))",
+          data: "hsl(var(--coach-data))",
+          innovation: "hsl(var(--coach-innovation))",
+          operations: "hsl(var(--coach-operations))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,20 +75,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
