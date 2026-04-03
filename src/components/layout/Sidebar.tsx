@@ -184,10 +184,24 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {/* Settings */}
         <div className="p-3 border-t border-border">
-          <button className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg transition-colors">
-            <Settings className="h-4 w-4" />
-            <span>设置</span>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+                <Settings className="h-4 w-4" />
+                <span>设置</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start">
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => navigate('/admin')}>
+                  <Shield className="h-4 w-4 mr-2" />管理后台
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => { signOut(); navigate('/login'); }}>
+                <LogOut className="h-4 w-4 mr-2" />退出登录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
