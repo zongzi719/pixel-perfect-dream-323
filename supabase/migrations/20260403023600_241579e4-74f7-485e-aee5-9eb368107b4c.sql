@@ -1,0 +1,1 @@
+ALTER TABLE public.llm_models ADD COLUMN provider_type text NOT NULL DEFAULT 'openai_compatible';
