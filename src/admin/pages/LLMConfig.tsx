@@ -351,18 +351,19 @@ export default function LLMConfig() {
                 if (!form.base_url) { toast.error('请先填写服务地址'); return; }
                 setTestingConnection(true);
                 try {
+                  // For OpenClaw: use HTTP health check; for others: GET /models
+                  const cleanUrl = form.base_url.replace(/\/+$/, '').replace(/^ws(s?):\/\//, 'http$1://');
                   const testUrl = form.provider_type === 'openclaw'
-                    ? `${form.base_url.replace(/\/+$/, '')}/api/sessions/test-connection/messages`
-                    : `${form.base_url.replace(/\/+$/, '')}/models`;
+                    ? `${cleanUrl}/health`
+                    : `${cleanUrl}/models`;
                   const controller = new AbortController();
                   const tid = setTimeout(() => controller.abort(), 15000);
                   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
                   if (form.api_key) headers['Authorization'] = `Bearer ${form.api_key}`;
                   const resp = await fetch(testUrl, {
-                    method: form.provider_type === 'openclaw' ? 'POST' : 'GET',
+                    method: 'GET',
                     headers,
                     signal: controller.signal,
-                    ...(form.provider_type === 'openclaw' ? { body: JSON.stringify({ message: 'ping' }) } : {}),
                   });
                   clearTimeout(tid);
                   if (resp.ok || resp.status === 200 || resp.status === 201) {
