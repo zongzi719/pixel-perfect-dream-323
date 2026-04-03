@@ -254,8 +254,8 @@ export default function LLMConfig() {
             </div>
 
             {isOpenClaw && (
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 text-sm text-purple-300">
-                <div className="flex items-center gap-2 font-medium mb-1">
+              <div className="bg-neutral-100 border border-neutral-300 rounded-lg p-3 text-sm text-neutral-600">
+                <div className="flex items-center gap-2 font-medium mb-1 text-neutral-800">
                   <Brain className="h-4 w-4" /> OpenClaw 记忆模式
                 </div>
                 OpenClaw 自带对话记忆，每个用户独立 session，无需手动管理上下文。
