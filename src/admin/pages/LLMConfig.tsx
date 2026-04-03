@@ -217,14 +217,14 @@ export default function LLMConfig() {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     {!m.is_default && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-yellow-400" onClick={() => handleSetDefault(m.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-yellow-500" onClick={() => handleSetDefault(m.id)}>
                         <Star className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-white" onClick={() => openEdit(m)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={() => openEdit(m)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-400" onClick={() => handleDelete(m.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-500" onClick={() => handleDelete(m.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
