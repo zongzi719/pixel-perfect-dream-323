@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Pencil } from "lucide-react";
 
 export default function AgentList() {
   const navigate = useNavigate();
