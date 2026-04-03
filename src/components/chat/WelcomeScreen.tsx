@@ -1,4 +1,3 @@
-import { useMode } from '@/contexts/ModeContext';
 import { useAuth } from '@/hooks/useAuth';
 
 const suggestions = ['决策', '分析', '规划', '复盘'];
