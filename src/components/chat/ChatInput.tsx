@@ -205,6 +205,7 @@ export function ChatInput() {
               updateLastAssistantMessage(accumulated, convId);
             },
             onDone: () => setIsStreaming(false),
+            onSlowConnection: () => toast.info('模型正在思考中，请耐心等待...'),
           });
         } catch {
           setIsStreaming(false);
