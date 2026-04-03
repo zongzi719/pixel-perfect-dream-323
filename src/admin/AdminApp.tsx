@@ -18,6 +18,7 @@ import PlanManage from "./pages/PlanManage";
 import OrderList from "./pages/OrderList";
 import UsageRecords from "./pages/UsageRecords";
 import MemoryManage from "./pages/MemoryManage";
+import LLMConfig from "./pages/LLMConfig";
 import { Loader2 } from "lucide-react";
 
 function AdminGuard() {
