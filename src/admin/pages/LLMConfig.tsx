@@ -195,7 +195,7 @@ export default function LLMConfig() {
                       <Brain className="h-3 w-3" /> 记忆
                     </Badge>
                   ) : (
-                    <span className="text-neutral-400 text-xs">标准</span>
+                    <span className="text-neutral-500 text-xs">标准</span>
                   )}
                 </TableCell>
                 <TableCell className="text-neutral-300">{m.provider}</TableCell>
