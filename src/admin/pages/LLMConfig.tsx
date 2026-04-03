@@ -352,36 +352,22 @@ export default function LLMConfig() {
                 if (!form.base_url) { toast.error('请先填写服务地址'); return; }
                 setTestingConnection(true);
                 try {
-                  // For OpenClaw: use HTTP health check; for others: GET /models
-                  const cleanUrl = form.base_url.replace(/\/+$/, '').replace(/^ws(s?):\/\//, 'http$1://');
-                  const testUrl = form.provider_type === 'openclaw'
-                    ? `${cleanUrl}/health`
-                    : `${cleanUrl}/models`;
-                  const controller = new AbortController();
-                  const tid = setTimeout(() => controller.abort(), 15000);
-                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-                  if (form.api_key) headers['Authorization'] = `Bearer ${form.api_key}`;
-                  const resp = await fetch(testUrl, {
-                    method: 'GET',
-                    headers,
-                    signal: controller.signal,
+                  const { data, error } = await supabase.functions.invoke('test-connection', {
+                    body: {
+                      base_url: form.base_url,
+                      api_key: form.api_key || null,
+                      provider_type: form.provider_type,
+                    },
                   });
-                  clearTimeout(tid);
-                  if (resp.ok || resp.status === 200 || resp.status === 201) {
-                    toast.success('连接成功！服务可达');
-                  } else if (resp.status === 401 || resp.status === 403) {
-                    toast.error('认证失败，请检查 API Key');
-                  } else if (resp.status === 404) {
-                    toast.error('接口未找到，请检查服务地址');
+                  if (error) {
+                    toast.error(`请求失败: ${error.message}`);
+                  } else if (data?.ok) {
+                    toast.success(data.message);
                   } else {
-                    toast.error(`服务返回 ${resp.status}，请检查配置`);
+                    toast.error(data?.message || '连接失败');
                   }
                 } catch (err: any) {
-                  if (err.name === 'AbortError') {
-                    toast.error('连接超时（15秒），请检查地址是否可达');
-                  } else {
-                    toast.error(`连接失败: ${err.message}`);
-                  }
+                  toast.error(`连接失败: ${err.message}`);
                 } finally {
                   setTestingConnection(false);
                 }
