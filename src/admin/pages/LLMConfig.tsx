@@ -175,14 +175,14 @@ export default function LLMConfig() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-neutral-500 py-10">加载中...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-neutral-400 py-10">加载中...</TableCell></TableRow>
             ) : models.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-neutral-500 py-10">暂无模型</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-neutral-400 py-10">暂无模型</TableCell></TableRow>
             ) : models.map(m => (
-              <TableRow key={m.id} className="border-neutral-800">
+              <TableRow key={m.id} className="border-neutral-200">
                 <TableCell>
                   <div>
-                    <div className="text-white font-medium flex items-center gap-2">
+                    <div className="text-neutral-900 font-medium flex items-center gap-2">
                       {m.display_name}
                       {m.is_default && <Badge variant="outline" className="text-green-400 border-green-600 text-xs">默认</Badge>}
                     </div>
