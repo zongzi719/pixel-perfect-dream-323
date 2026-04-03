@@ -1,6 +1,8 @@
 import { Message } from '@/types';
 import { coaches } from '@/data/coaches';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
   message: Message;
@@ -55,8 +57,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </span>
           </div>
         )}
-        <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-          {message.content}
+        <div className="text-sm text-foreground/90 leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
         </div>
         {message.structuredTags && message.structuredTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
