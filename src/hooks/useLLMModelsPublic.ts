@@ -6,6 +6,7 @@ export interface LLMModelPublic {
   model_name: string;
   display_name: string;
   provider: string;
+  provider_type: string;
   tags: string[];
   is_default: boolean;
 }
