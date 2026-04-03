@@ -26,7 +26,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const navigate = useNavigate();
 
   const handleNewChat = () => {
-    createConversation(mode);
+    createConversation(mode).catch(() => {});
   };
 
   const grouped = groupByDate(conversations);
