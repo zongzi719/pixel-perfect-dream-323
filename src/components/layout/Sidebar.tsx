@@ -89,9 +89,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </Button>
         ))}
         <div className="flex-1" />
-        <Button variant="ghost" size="icon">
-          <Settings className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end">
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => navigate('/admin')}>
+                <Shield className="h-4 w-4 mr-2" />管理后台
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => { signOut(); navigate('/login'); }}>
+              <LogOut className="h-4 w-4 mr-2" />退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   }
