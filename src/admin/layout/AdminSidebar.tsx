@@ -101,7 +101,7 @@ export function AdminSidebar() {
             <span className="text-sm font-bold text-white">AI</span>
           </div>
           {!collapsed && (
-            <span className="text-base font-semibold text-neutral-100">AI YOU Admin</span>
+            <span className="text-base font-semibold text-neutral-900">AI YOU Admin</span>
           )}
         </div>
       </SidebarHeader>
