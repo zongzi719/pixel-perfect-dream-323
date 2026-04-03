@@ -1,84 +1,61 @@
 
+问题基本已经定位，不是你“公网地址没配上”，而是当前实现对 OpenClaw 的调用方式很容易让前端看起来一直卡住。
 
-# 接入 OpenClaw 对话记忆方案
+1. 根因判断
+- `supabase/functions/chat/index.ts` 里，OpenClaw 分支不是流式转发，而是先 `await response.json()` 等 OpenClaw 整个回答结束后，才一次性伪装成 SSE 返回。
+- 如果你的公网 OpenClaw 响应慢、首字时间长，前端就会一直没有任何 token，表现成“卡住”。
+- `src/components/chat/ChatInput.tsx` 里调用函数时，`Authorization` 发的是 `VITE_SUPABASE_PUBLISHABLE_KEY`，不是当前登录用户的 access token。
+- 这样后端里 JWT 解析出来通常不是实际用户，OpenClaw session key 会退化成固定值/匿名值，容易造成会话异常、共享上下文或不可预期卡顿。
 
-## 背景
+2. 我会怎么改
+- 修正前端鉴权：
+  - 在 `ChatInput.tsx` 里改成读取当前登录会话 token，再放进 `Authorization: Bearer <access_token>`。
+  - 保证后端能拿到真实用户身份。
+- 修正 OpenClaw 调用链：
+  - 后端不要再等完整 JSON 后再返回。
+  - 增加超时控制、错误细化、连接失败提示，把“卡住”变成明确错误。
+  - 如果 OpenClaw 仍然只返回整包 JSON，也要在前端增加“连接中/思考中”状态和超时兜底，避免无反馈。
+- 增强可观测性：
+  - 在 `chat` function 中记录 providerType、目标 base_url、响应状态码、超时/解析失败原因。
+  - 便于你后续区分是公网连通、Token、还是 OpenClaw 本身处理慢。
+- 管理后台补一个“连通性测试”能力：
+  - 在 `LLMConfig.tsx` 增加测试按钮。
+  - 保存前或保存后直接验证 Base URL + Token 是否可达，并显示明确结果。
+  - 这样以后改模型地址时不用到聊天页盲测。
 
-OpenClaw 是自托管 AI Agent，核心优势是**内置记忆系统**（短期 + 长期记忆），API 格式与 OpenAI 不同：
-- 端点：`POST /api/sessions/:sessionKey/messages`
-- 请求体：`{"message": "..."}`（不需要发送历史消息，OpenClaw 自己记住）
-- 认证：`Authorization: Bearer <token>`
-- 每个 session 独立记忆
+3. 具体实施步骤
+- Step 1: 审查并修正 `ChatInput.tsx` 的请求头，改为发送真实用户 token。
+- Step 2: 重构 `supabase/functions/chat/index.ts` 的 OpenClaw 分支：
+  - 加 fetch 超时
+  - 明确区分 401/403/404/502/超时
+  - 避免“无输出长等待”
+- Step 3: 前端补充流式等待态和超时提示：
+  - 一段时间没有首包就提示“模型响应较慢/正在连接”
+  - 请求失败时直接展示可读中文原因
+- Step 4: 在后台 LLM 配置页增加“测试连接”按钮与结果提示。
+- Step 5: 联调验证两种模型：
+  - Lovable AI 默认模型正常
+  - `零码-openclaw-1` 公网模型正常
+  - 切换模型后都能返回结果，不再无反馈卡住
 
-## 方案设计
+4. 预期结果
+- 如果是公网 OpenClaw 本身慢，界面会显示“正在连接/思考中”，而不是假死。
+- 如果是 Token 或地址错误，会直接报出可读原因。
+- 如果模型可用，消息会正常返回，不再长期卡住。
+- 后台能先测通再使用，排查效率会高很多。
 
+5. 技术细节
 ```text
-用户发消息 → Edge Function → 检查 provider
-                              ├─ OpenAI/Google 等 → /chat/completions (现有逻辑)
-                              └─ OpenClaw        → /api/sessions/{userId}/messages
-                                                    (OpenClaw 自带记忆，无需传历史)
+当前链路
+前端 -> chat function -> 等 OpenClaw 全部算完 -> 再一次性回前端
+问题：首包慢时，用户看到的就是“卡住”
+
+调整后
+前端 -> chat function(带超时/明确错误) -> OpenClaw
+      -> 前端显示连接状态/超时提示
+结果：即使慢，也不会无反馈
 ```
 
-### 1. 数据库：`llm_models` 表增加 `provider_type` 字段
-
-新增 migration，添加 `provider_type` 列：
-- `openai_compatible`（默认，当前所有模型）
-- `openclaw`（新增）
-
-这样 edge function 可以根据 `provider_type` 走不同的调用逻辑。
-
-### 2. 管理后台：LLM 配置页支持 OpenClaw
-
-**编辑 `LLMConfig.tsx`**：
-- 供应商下拉新增 "OpenClaw" 选项
-- 当选择 OpenClaw 时：
-  - `Base URL` 提示填写 OpenClaw 网关地址（如 `http://your-server:18789`）
-  - `API Key` 填写 OpenClaw Bearer Token
-  - 隐藏 `model_name`（OpenClaw 不需要）、`context_window` 等无关字段
-  - 新增提示："OpenClaw 自带对话记忆，每个用户独立 session"
-
-### 3. Edge Function：支持 OpenClaw 路由
-
-**编辑 `supabase/functions/chat/index.ts`**：
-
-当 `provider_type === 'openclaw'` 时：
-- 从 JWT 中提取 `user_id` 作为 session key（`user-{userId}`），确保每个用户独立记忆
-- 调用 `POST {base_url}/api/sessions/user-{userId}/messages`
-- 请求体：`{"message": "用户消息内容"}`
-- OpenClaw 返回的响应格式不同，需要适配解析
-- 将 OpenClaw 的响应转换为 SSE 流式格式返回给前端（保持前端不变）
-
-当 `provider_type === 'openai_compatible'`（或空）时：走现有 `/chat/completions` 逻辑不变。
-
-### 4. 前端 ChatInput：无需大改
-
-- 前端选择模型时，无论是 OpenClaw 还是普通 LLM，都发同样的请求到 edge function
-- Edge function 内部判断路由，前端透明
-- 唯一区别：OpenClaw 模式下**不需要发送历史消息**，只发当前消息即可（edge function 内部处理）
-
-### 5. 记忆管理（可选增强）
-
-管理后台「记忆管理」页面可增加：
-- 查看 OpenClaw session 列表
-- 清除某用户的 OpenClaw 记忆（调用 `DELETE /api/sessions/:key`）
-
-此部分作为后续增强，首期不实现。
-
-## 文件变更清单
-
-| 操作 | 文件 |
-|------|------|
-| 新建 | migration — `llm_models` 增加 `provider_type` 列 |
-| 编辑 | `supabase/functions/chat/index.ts` — 增加 OpenClaw 路由逻辑 |
-| 编辑 | `src/admin/pages/LLMConfig.tsx` — 供应商增加 OpenClaw，条件显示字段 |
-| 编辑 | `src/admin/hooks/useLLMModels.ts` — 类型增加 `provider_type` |
-| 编辑 | `src/hooks/useLLMModelsPublic.ts` — 类型同步 |
-
-## 使用流程
-
-1. 管理员在 LLM 配置页添加模型，供应商选 "OpenClaw"
-2. 填入 OpenClaw 服务地址和 Token
-3. 前端用户选择该模型后发消息
-4. Edge function 自动以用户 ID 为 session key 调用 OpenClaw
-5. OpenClaw 记住每个用户的对话历史，实现跨会话记忆
-
+需要注意的现状：
+- 现在的 OpenClaw 不是“真正逐 token 流式”，所以即使修完，也更像“有清晰加载状态 + 返回整包结果”，不会像原生流式模型那样一个字一个字冒出来。
+- 若后续你想做到真正流式，需要确认 OpenClaw 服务端本身是否支持 SSE/流式输出，再决定是否继续改造。
