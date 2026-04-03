@@ -180,6 +180,7 @@ export function ChatInput() {
                 updateLastAssistantMessage(accumulated, convId);
               },
               onDone: () => {},
+              onSlowConnection: () => toast.info('模型正在思考中，请耐心等待...'),
             });
           } catch {
             if (!accumulated) updateLastAssistantMessage('抱歉，AI 回复出错了。', convId);
