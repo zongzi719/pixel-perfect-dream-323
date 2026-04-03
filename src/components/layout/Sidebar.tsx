@@ -50,6 +50,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { mode } = useMode();
   const navigate = useNavigate();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const { user, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('admin_users').select('id').eq('user_id', user.id).eq('status', 'active').maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [user]);
 
   const handleNewChat = () => {
     createConversation(mode).catch(() => {});
