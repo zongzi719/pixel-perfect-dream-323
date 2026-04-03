@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Star, Brain } from 'lucide-react';
+import { Plus, Pencil, Trash2, Star, Brain, Loader2, Wifi } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useLLMModels,
@@ -45,6 +45,7 @@ export default function LLMConfig() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [tagsInput, setTagsInput] = useState('');
+  const [testingConnection, setTestingConnection] = useState(false);
 
   const isOpenClaw = form.provider_type === 'openclaw';
 
@@ -339,6 +340,51 @@ export default function LLMConfig() {
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!form.base_url) { toast.error('请先填写服务地址'); return; }
+                setTestingConnection(true);
+                try {
+                  const testUrl = form.provider_type === 'openclaw'
+                    ? `${form.base_url.replace(/\/+$/, '')}/api/sessions/test-connection/messages`
+                    : `${form.base_url.replace(/\/+$/, '')}/models`;
+                  const controller = new AbortController();
+                  const tid = setTimeout(() => controller.abort(), 15000);
+                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                  if (form.api_key) headers['Authorization'] = `Bearer ${form.api_key}`;
+                  const resp = await fetch(testUrl, {
+                    method: form.provider_type === 'openclaw' ? 'POST' : 'GET',
+                    headers,
+                    signal: controller.signal,
+                    ...(form.provider_type === 'openclaw' ? { body: JSON.stringify({ message: 'ping' }) } : {}),
+                  });
+                  clearTimeout(tid);
+                  if (resp.ok || resp.status === 200 || resp.status === 201) {
+                    toast.success('连接成功！服务可达');
+                  } else if (resp.status === 401 || resp.status === 403) {
+                    toast.error('认证失败，请检查 API Key');
+                  } else if (resp.status === 404) {
+                    toast.error('接口未找到，请检查服务地址');
+                  } else {
+                    toast.error(`服务返回 ${resp.status}，请检查配置`);
+                  }
+                } catch (err: any) {
+                  if (err.name === 'AbortError') {
+                    toast.error('连接超时（15秒），请检查地址是否可达');
+                  } else {
+                    toast.error(`连接失败: ${err.message}`);
+                  }
+                } finally {
+                  setTestingConnection(false);
+                }
+              }}
+              disabled={testingConnection}
+              className="gap-1"
+            >
+              {testingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
+              测试连接
+            </Button>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
             <Button onClick={handleSave} disabled={createModel.isPending || updateModel.isPending} className="bg-neutral-900 text-white hover:bg-neutral-800">
               {editingId ? '保存' : '创建'}
