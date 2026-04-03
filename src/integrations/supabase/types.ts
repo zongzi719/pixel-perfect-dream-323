@@ -223,6 +223,60 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_models: {
+        Row: {
+          api_key: string | null
+          base_url: string
+          context_window: number
+          created_at: string
+          display_name: string
+          enabled: boolean
+          id: string
+          input_price: number
+          is_default: boolean
+          model_name: string
+          output_price: number
+          provider: string
+          sort_order: number
+          tags: string[]
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          base_url?: string
+          context_window?: number
+          created_at?: string
+          display_name: string
+          enabled?: boolean
+          id?: string
+          input_price?: number
+          is_default?: boolean
+          model_name: string
+          output_price?: number
+          provider?: string
+          sort_order?: number
+          tags?: string[]
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          base_url?: string
+          context_window?: number
+          created_at?: string
+          display_name?: string
+          enabled?: boolean
+          id?: string
+          input_price?: number
+          is_default?: boolean
+          model_name?: string
+          output_price?: number
+          provider?: string
+          sort_order?: number
+          tags?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meetings: {
         Row: {
           ai_summary: Json

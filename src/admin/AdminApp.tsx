@@ -18,6 +18,7 @@ import PlanManage from "./pages/PlanManage";
 import OrderList from "./pages/OrderList";
 import UsageRecords from "./pages/UsageRecords";
 import MemoryManage from "./pages/MemoryManage";
+import LLMConfig from "./pages/LLMConfig";
 import { Loader2 } from "lucide-react";
 
 function AdminGuard() {
@@ -48,6 +49,7 @@ export default function AdminApp() {
         <Route path="admins" element={<AdminManage />} />
         <Route path="agents" element={<AgentList />} />
         <Route path="agents/new" element={<AgentCreate />} />
+        <Route path="llm" element={<LLMConfig />} />
         <Route path="content" element={<ContentList />} />
         <Route path="content/:id" element={<ContentDetail />} />
         <Route path="notes-manage" element={<NotesManage />} />
