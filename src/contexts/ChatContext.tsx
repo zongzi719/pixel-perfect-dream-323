@@ -11,6 +11,7 @@ interface ChatContextType {
   updateLastAssistantMessage: (content: string, targetConvId?: string) => void;
   finalizeAssistantMessage: (targetConvId?: string) => Promise<void>;
   setCurrentConversation: (id: string | null) => void;
+  deleteConversation: (id: string) => Promise<void>;
   decisionStarted: boolean;
   setDecisionStarted: (v: boolean) => void;
   loadingConversations: boolean;
