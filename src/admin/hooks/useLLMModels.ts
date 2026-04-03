@@ -6,6 +6,7 @@ export interface LLMModel {
   model_name: string;
   display_name: string;
   provider: string;
+  provider_type: string;
   base_url: string;
   api_key: string | null;
   input_price: number;

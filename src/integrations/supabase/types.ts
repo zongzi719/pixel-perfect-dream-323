@@ -237,6 +237,7 @@ export type Database = {
           model_name: string
           output_price: number
           provider: string
+          provider_type: string
           sort_order: number
           tags: string[]
           updated_at: string
@@ -254,6 +255,7 @@ export type Database = {
           model_name: string
           output_price?: number
           provider?: string
+          provider_type?: string
           sort_order?: number
           tags?: string[]
           updated_at?: string
@@ -271,6 +273,7 @@ export type Database = {
           model_name?: string
           output_price?: number
           provider?: string
+          provider_type?: string
           sort_order?: number
           tags?: string[]
           updated_at?: string

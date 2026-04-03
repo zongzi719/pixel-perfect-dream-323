@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Star } from 'lucide-react';
+import { Plus, Pencil, Trash2, Star, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useLLMModels,
@@ -22,6 +22,7 @@ const emptyForm = {
   model_name: '',
   display_name: '',
   provider: 'OpenAI',
+  provider_type: 'openai_compatible' as string,
   base_url: 'https://ai.gateway.lovable.dev/v1',
   api_key: '',
   input_price: 1,
@@ -45,6 +46,8 @@ export default function LLMConfig() {
   const [form, setForm] = useState(emptyForm);
   const [tagsInput, setTagsInput] = useState('');
 
+  const isOpenClaw = form.provider_type === 'openclaw';
+
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -58,6 +61,7 @@ export default function LLMConfig() {
       model_name: m.model_name,
       display_name: m.display_name,
       provider: m.provider,
+      provider_type: m.provider_type || 'openai_compatible',
       base_url: m.base_url,
       api_key: m.api_key || '',
       input_price: m.input_price,
@@ -72,13 +76,42 @@ export default function LLMConfig() {
     setDialogOpen(true);
   };
 
+  const handleProviderTypeChange = (v: string) => {
+    if (v === 'openclaw') {
+      setForm(f => ({
+        ...f,
+        provider_type: 'openclaw',
+        provider: 'OpenClaw',
+        model_name: 'openclaw',
+        base_url: f.base_url === 'https://ai.gateway.lovable.dev/v1' ? '' : f.base_url,
+      }));
+    } else {
+      setForm(f => ({
+        ...f,
+        provider_type: 'openai_compatible',
+        provider: f.provider === 'OpenClaw' ? 'OpenAI' : f.provider,
+        model_name: f.model_name === 'openclaw' ? '' : f.model_name,
+        base_url: f.base_url || 'https://ai.gateway.lovable.dev/v1',
+      }));
+    }
+  };
+
   const handleSave = async () => {
-    if (!form.model_name || !form.display_name) {
-      toast.error('请填写模型标识和展示名称');
+    if (!form.display_name) {
+      toast.error('请填写展示名称');
+      return;
+    }
+    if (!isOpenClaw && !form.model_name) {
+      toast.error('请填写模型标识');
       return;
     }
     const tags = tagsInput.split(/[,，]/).map(t => t.trim()).filter(Boolean);
-    const payload = { ...form, tags, api_key: form.api_key || null };
+    const payload = {
+      ...form,
+      tags,
+      api_key: form.api_key || null,
+      model_name: isOpenClaw ? (form.model_name || 'openclaw') : form.model_name,
+    };
 
     try {
       if (editingId) {
@@ -130,11 +163,11 @@ export default function LLMConfig() {
           <TableHeader>
             <TableRow className="border-neutral-800 hover:bg-transparent">
               <TableHead className="text-neutral-400">模型</TableHead>
+              <TableHead className="text-neutral-400">类型</TableHead>
               <TableHead className="text-neutral-400">供应商</TableHead>
               <TableHead className="text-neutral-400">Base URL</TableHead>
               <TableHead className="text-neutral-400">输入单价</TableHead>
               <TableHead className="text-neutral-400">输出单价</TableHead>
-              <TableHead className="text-neutral-400">上下文</TableHead>
               <TableHead className="text-neutral-400">标签</TableHead>
               <TableHead className="text-neutral-400">状态</TableHead>
               <TableHead className="text-neutral-400 text-right">操作</TableHead>
@@ -156,11 +189,19 @@ export default function LLMConfig() {
                     <div className="text-neutral-500 text-xs">{m.model_name}</div>
                   </div>
                 </TableCell>
+                <TableCell>
+                  {m.provider_type === 'openclaw' ? (
+                    <Badge variant="outline" className="text-purple-400 border-purple-600 text-xs gap-1">
+                      <Brain className="h-3 w-3" /> 记忆
+                    </Badge>
+                  ) : (
+                    <span className="text-neutral-400 text-xs">标准</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-neutral-300">{m.provider}</TableCell>
                 <TableCell className="text-neutral-400 text-xs max-w-[200px] truncate">{m.base_url}</TableCell>
                 <TableCell className="text-neutral-300">{m.input_price}</TableCell>
                 <TableCell className="text-neutral-300">{m.output_price}</TableCell>
-                <TableCell className="text-neutral-300">{(m.context_window / 1000).toFixed(0)}K</TableCell>
                 <TableCell>
                   <div className="flex gap-1 flex-wrap">
                     {(m.tags || []).map(t => (
@@ -200,60 +241,91 @@ export default function LLMConfig() {
             <DialogTitle>{editingId ? '编辑模型' : '添加模型'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>供应商</Label>
-                <Select value={form.provider} onValueChange={v => setForm(f => ({ ...f, provider: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OpenAI">OpenAI</SelectItem>
-                    <SelectItem value="Google">Google</SelectItem>
-                    <SelectItem value="Anthropic">Anthropic</SelectItem>
-                    <SelectItem value="DeepSeek">DeepSeek</SelectItem>
-                    <SelectItem value="其他">其他</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Provider type toggle */}
+            <div className="space-y-2">
+              <Label>接入类型</Label>
+              <Select value={form.provider_type} onValueChange={handleProviderTypeChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai_compatible">OpenAI 兼容</SelectItem>
+                  <SelectItem value="openclaw">OpenClaw（带记忆）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isOpenClaw && (
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 text-sm text-purple-300">
+                <div className="flex items-center gap-2 font-medium mb-1">
+                  <Brain className="h-4 w-4" /> OpenClaw 记忆模式
+                </div>
+                OpenClaw 自带对话记忆，每个用户独立 session，无需手动管理上下文。
               </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              {!isOpenClaw && (
+                <div className="space-y-2">
+                  <Label>供应商</Label>
+                  <Select value={form.provider} onValueChange={v => setForm(f => ({ ...f, provider: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OpenAI">OpenAI</SelectItem>
+                      <SelectItem value="Google">Google</SelectItem>
+                      <SelectItem value="Anthropic">Anthropic</SelectItem>
+                      <SelectItem value="DeepSeek">DeepSeek</SelectItem>
+                      <SelectItem value="其他">其他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>排序权重</Label>
                 <Input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: +e.target.value }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>模型标识 *</Label>
-                <Input placeholder="如 gpt-4o" value={form.model_name} onChange={e => setForm(f => ({ ...f, model_name: e.target.value }))} />
-              </div>
+
+            <div className={isOpenClaw ? '' : 'grid grid-cols-2 gap-4'}>
+              {!isOpenClaw && (
+                <div className="space-y-2">
+                  <Label>模型标识 *</Label>
+                  <Input placeholder="如 gpt-4o" value={form.model_name} onChange={e => setForm(f => ({ ...f, model_name: e.target.value }))} />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>展示名称 *</Label>
-                <Input placeholder="如 GPT-4o 高速版" value={form.display_name} onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} />
+                <Input placeholder={isOpenClaw ? "如 OpenClaw 记忆助手" : "如 GPT-4o 高速版"} value={form.display_name} onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>API Key / Bearer Token</Label>
+              <Input type="password" placeholder={isOpenClaw ? "OpenClaw Bearer Token" : "留空则使用系统默认"} value={form.api_key} onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>API Key</Label>
-              <Input type="password" placeholder="留空则使用系统默认" value={form.api_key} onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))} />
+              <Label>{isOpenClaw ? 'OpenClaw 服务地址' : 'Base URL'}</Label>
+              <Input placeholder={isOpenClaw ? "如 http://your-server:18789" : "https://ai.gateway.lovable.dev/v1"} value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} />
             </div>
-            <div className="space-y-2">
-              <Label>Base URL</Label>
-              <Input value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>输入积分单价</Label>
-                <Input type="number" value={form.input_price} onChange={e => setForm(f => ({ ...f, input_price: +e.target.value }))} />
+
+            {!isOpenClaw && (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>输入积分单价</Label>
+                  <Input type="number" value={form.input_price} onChange={e => setForm(f => ({ ...f, input_price: +e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>输出积分单价</Label>
+                  <Input type="number" value={form.output_price} onChange={e => setForm(f => ({ ...f, output_price: +e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>上下文窗口</Label>
+                  <Input type="number" value={form.context_window} onChange={e => setForm(f => ({ ...f, context_window: +e.target.value }))} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>输出积分单价</Label>
-                <Input type="number" value={form.output_price} onChange={e => setForm(f => ({ ...f, output_price: +e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>上下文窗口</Label>
-                <Input type="number" value={form.context_window} onChange={e => setForm(f => ({ ...f, context_window: +e.target.value }))} />
-              </div>
-            </div>
+            )}
+
             <div className="space-y-2">
               <Label>标签（逗号分隔）</Label>
-              <Input placeholder="如: 默认, 私有化" value={tagsInput} onChange={e => setTagsInput(e.target.value)} />
+              <Input placeholder="如: 默认, 记忆" value={tagsInput} onChange={e => setTagsInput(e.target.value)} />
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">

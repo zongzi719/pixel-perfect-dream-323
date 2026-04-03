@@ -6,6 +6,7 @@ export interface LLMModelPublic {
   model_name: string;
   display_name: string;
   provider: string;
+  provider_type: string;
   tags: string[];
   is_default: boolean;
 }
@@ -16,7 +17,7 @@ export function useLLMModelsPublic() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('llm_models' as any)
-        .select('id, model_name, display_name, provider, tags, is_default')
+        .select('id, model_name, display_name, provider, provider_type, tags, is_default')
         .eq('enabled', true)
         .order('sort_order', { ascending: true });
       if (error) throw error;
