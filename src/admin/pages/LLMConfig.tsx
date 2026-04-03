@@ -329,7 +329,7 @@ export default function LLMConfig() {
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <Switch checked={form.enabled} onCheckedChange={v => setForm(f => ({ ...f, enabled: v }))} />
+                <Switch checked={form.enabled} onCheckedChange={v => setForm(f => ({ ...f, enabled: v }))} className="data-[state=checked]:bg-neutral-900" />
                 <Label>启用</Label>
               </div>
               <div className="flex items-center gap-2">
