@@ -333,7 +333,7 @@ export default function LLMConfig() {
                 <Label>启用</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch checked={form.is_default} onCheckedChange={v => setForm(f => ({ ...f, is_default: v }))} />
+                <Switch checked={form.is_default} onCheckedChange={v => setForm(f => ({ ...f, is_default: v }))} className="data-[state=checked]:bg-neutral-900" />
                 <Label>设为默认</Label>
               </div>
             </div>
