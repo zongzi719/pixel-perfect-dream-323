@@ -1,47 +1,84 @@
 
 
-# 对话记录持久化到数据库
+# 接入 OpenClaw 对话记忆方案
 
-## 现状
+## 背景
 
-当前 `ChatContext` 使用纯 React state 存储对话，刷新页面即丢失。数据库已有 `conversations` 和 `messages` 表并配好了 RLS（用户只能看到自己的数据），但前端没有使用。
+OpenClaw 是自托管 AI Agent，核心优势是**内置记忆系统**（短期 + 长期记忆），API 格式与 OpenAI 不同：
+- 端点：`POST /api/sessions/:sessionKey/messages`
+- 请求体：`{"message": "..."}`（不需要发送历史消息，OpenClaw 自己记住）
+- 认证：`Authorization: Bearer <token>`
+- 每个 session 独立记忆
 
-## 方案
+## 方案设计
 
-### 1. 重构 ChatContext — 接入数据库
+```text
+用户发消息 → Edge Function → 检查 provider
+                              ├─ OpenAI/Google 等 → /chat/completions (现有逻辑)
+                              └─ OpenClaw        → /api/sessions/{userId}/messages
+                                                    (OpenClaw 自带记忆，无需传历史)
+```
 
-**核心改动**：`src/contexts/ChatContext.tsx`
+### 1. 数据库：`llm_models` 表增加 `provider_type` 字段
 
-- **初始化时**：用 `useAuth` 获取 `user`，登录后从 `conversations` 表加载该用户的对话列表（按 `updated_at` 降序），从 `messages` 表加载当前对话的消息
-- **createConversation**：插入 `conversations` 表（`user_id = auth.uid()`），返回数据库生成的 UUID
-- **addMessage**：插入 `messages` 表（`conversation_id`, `role`, `content`, `coach_id`），同时更新 `conversations` 表的 `last_message`、`message_count`、`updated_at`
-- **updateLastAssistantMessage**：流式完成后，UPDATE 该消息的 `content`（需要给 messages 表加 UPDATE RLS 策略）
-- **切换对话**：`setCurrentConversation` 时按需加载该对话的 messages
+新增 migration，添加 `provider_type` 列：
+- `openai_compatible`（默认，当前所有模型）
+- `openclaw`（新增）
 
-### 2. 数据库补充
+这样 edge function 可以根据 `provider_type` 走不同的调用逻辑。
 
-**Migration**：
-- 给 `messages` 表添加 UPDATE 策略，允许用户更新自己对话中的消息（流式写入需要）
-- 给 `conversations` 表添加 DELETE 策略（用户删除自己的对话）
+### 2. 管理后台：LLM 配置页支持 OpenClaw
 
-### 3. ChatInput 适配
+**编辑 `LLMConfig.tsx`**：
+- 供应商下拉新增 "OpenClaw" 选项
+- 当选择 OpenClaw 时：
+  - `Base URL` 提示填写 OpenClaw 网关地址（如 `http://your-server:18789`）
+  - `API Key` 填写 OpenClaw Bearer Token
+  - 隐藏 `model_name`（OpenClaw 不需要）、`context_window` 等无关字段
+  - 新增提示："OpenClaw 自带对话记忆，每个用户独立 session"
 
-**编辑** `src/components/chat/ChatInput.tsx`：
-- `createConversation` 改为 async（需等待数据库插入返回 ID）
-- `addMessage` 改为 async
-- 流式结束后调用 `finalizeMessage` 将完整内容写入数据库
+### 3. Edge Function：支持 OpenClaw 路由
 
-### 4. Sidebar 适配
+**编辑 `supabase/functions/chat/index.ts`**：
 
-**编辑** `src/components/layout/Sidebar.tsx`：
-- 对话列表直接从 ChatContext 读取（已接数据库），无需改动接口，但日期分组用 `createdAt` 需确保是 Date 对象
+当 `provider_type === 'openclaw'` 时：
+- 从 JWT 中提取 `user_id` 作为 session key（`user-{userId}`），确保每个用户独立记忆
+- 调用 `POST {base_url}/api/sessions/user-{userId}/messages`
+- 请求体：`{"message": "用户消息内容"}`
+- OpenClaw 返回的响应格式不同，需要适配解析
+- 将 OpenClaw 的响应转换为 SSE 流式格式返回给前端（保持前端不变）
+
+当 `provider_type === 'openai_compatible'`（或空）时：走现有 `/chat/completions` 逻辑不变。
+
+### 4. 前端 ChatInput：无需大改
+
+- 前端选择模型时，无论是 OpenClaw 还是普通 LLM，都发同样的请求到 edge function
+- Edge function 内部判断路由，前端透明
+- 唯一区别：OpenClaw 模式下**不需要发送历史消息**，只发当前消息即可（edge function 内部处理）
+
+### 5. 记忆管理（可选增强）
+
+管理后台「记忆管理」页面可增加：
+- 查看 OpenClaw session 列表
+- 清除某用户的 OpenClaw 记忆（调用 `DELETE /api/sessions/:key`）
+
+此部分作为后续增强，首期不实现。
 
 ## 文件变更清单
 
 | 操作 | 文件 |
 |------|------|
-| 新建 | migration — messages UPDATE 策略 + conversations DELETE 策略 |
-| 重写 | `src/contexts/ChatContext.tsx` — 接入 Supabase 持久化 |
-| 编辑 | `src/components/chat/ChatInput.tsx` — 适配 async 操作 |
-| 编辑 | `src/types/index.ts` — Conversation.id 改为 string (UUID) |
+| 新建 | migration — `llm_models` 增加 `provider_type` 列 |
+| 编辑 | `supabase/functions/chat/index.ts` — 增加 OpenClaw 路由逻辑 |
+| 编辑 | `src/admin/pages/LLMConfig.tsx` — 供应商增加 OpenClaw，条件显示字段 |
+| 编辑 | `src/admin/hooks/useLLMModels.ts` — 类型增加 `provider_type` |
+| 编辑 | `src/hooks/useLLMModelsPublic.ts` — 类型同步 |
+
+## 使用流程
+
+1. 管理员在 LLM 配置页添加模型，供应商选 "OpenClaw"
+2. 填入 OpenClaw 服务地址和 Token
+3. 前端用户选择该模型后发消息
+4. Edge function 自动以用户 ID 为 session key 调用 OpenClaw
+5. OpenClaw 记住每个用户的对话历史，实现跨会话记忆
 
