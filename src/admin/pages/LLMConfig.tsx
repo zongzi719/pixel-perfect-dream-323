@@ -191,7 +191,7 @@ export default function LLMConfig() {
                 </TableCell>
                 <TableCell>
                   {m.provider_type === 'openclaw' ? (
-                    <Badge variant="outline" className="text-purple-400 border-purple-600 text-xs gap-1">
+                    <Badge variant="outline" className="text-neutral-700 border-neutral-400 text-xs gap-1">
                       <Brain className="h-3 w-3" /> 记忆
                     </Badge>
                   ) : (
