@@ -1,4 +1,3 @@
-import { useChat } from '@/contexts/ChatContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useAuth } from '@/hooks/useAuth';
 
