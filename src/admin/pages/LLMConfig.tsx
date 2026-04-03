@@ -191,7 +191,7 @@ export default function LLMConfig() {
                 </TableCell>
                 <TableCell>
                   {m.provider_type === 'openclaw' ? (
-                    <Badge variant="outline" className="text-purple-400 border-purple-600 text-xs gap-1">
+                    <Badge variant="outline" className="text-neutral-700 border-neutral-400 text-xs gap-1">
                       <Brain className="h-3 w-3" /> 记忆
                     </Badge>
                   ) : (
@@ -254,8 +254,8 @@ export default function LLMConfig() {
             </div>
 
             {isOpenClaw && (
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 text-sm text-purple-300">
-                <div className="flex items-center gap-2 font-medium mb-1">
+              <div className="bg-neutral-100 border border-neutral-300 rounded-lg p-3 text-sm text-neutral-600">
+                <div className="flex items-center gap-2 font-medium mb-1 text-neutral-800">
                   <Brain className="h-4 w-4" /> OpenClaw 记忆模式
                 </div>
                 OpenClaw 自带对话记忆，每个用户独立 session，无需手动管理上下文。
@@ -329,18 +329,18 @@ export default function LLMConfig() {
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <Switch checked={form.enabled} onCheckedChange={v => setForm(f => ({ ...f, enabled: v }))} />
+                <Switch checked={form.enabled} onCheckedChange={v => setForm(f => ({ ...f, enabled: v }))} className="data-[state=checked]:bg-neutral-900" />
                 <Label>启用</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch checked={form.is_default} onCheckedChange={v => setForm(f => ({ ...f, is_default: v }))} />
+                <Switch checked={form.is_default} onCheckedChange={v => setForm(f => ({ ...f, is_default: v }))} className="data-[state=checked]:bg-neutral-900" />
                 <Label>设为默认</Label>
               </div>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
-            <Button onClick={handleSave} disabled={createModel.isPending || updateModel.isPending}>
+            <Button onClick={handleSave} disabled={createModel.isPending || updateModel.isPending} className="bg-neutral-900 text-white hover:bg-neutral-800">
               {editingId ? '保存' : '创建'}
             </Button>
           </div>
