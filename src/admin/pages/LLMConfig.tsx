@@ -158,7 +158,7 @@ export default function LLMConfig() {
         </Button>
       </div>
 
-      <div className="border border-neutral-800 rounded-lg overflow-hidden">
+      <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
         <Table>
           <TableHeader>
             <TableRow className="border-neutral-800 hover:bg-transparent">
