@@ -215,11 +215,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setCurrentId(id);
   }, []);
 
+  const deleteConversation = useCallback(async (id: string) => {
+    // Delete messages first, then conversation
+    await supabase.from('messages').delete().eq('conversation_id', id);
+    await supabase.from('conversations').delete().eq('id', id);
+    setConversations(prev => prev.filter(c => c.id !== id));
+    if (currentId === id) setCurrentId(null);
+  }, [currentId]);
+
   return (
     <ChatContext.Provider value={{
       conversations, currentConversation, createConversation, addMessage,
       updateLastAssistantMessage, finalizeAssistantMessage, setCurrentConversation,
-      decisionStarted, setDecisionStarted, loadingConversations,
+      deleteConversation, decisionStarted, setDecisionStarted, loadingConversations,
     }}>
       {children}
     </ChatContext.Provider>
