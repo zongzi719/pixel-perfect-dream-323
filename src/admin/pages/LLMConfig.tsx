@@ -45,6 +45,7 @@ export default function LLMConfig() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [tagsInput, setTagsInput] = useState('');
+  const [testingConnection, setTestingConnection] = useState(false);
 
   const isOpenClaw = form.provider_type === 'openclaw';
 
