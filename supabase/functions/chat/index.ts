@@ -6,13 +6,119 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type OpenClawIdentity = {
+  deviceId: string;
+  publicKey: string;
+  privateKey: CryptoKey;
+};
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function normalizeOpenClawMetadata(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim().toLowerCase();
+  return normalized || fallback;
+}
+
+function buildDeviceAuthPayloadV3(params: {
+  deviceId: string;
+  clientId: string;
+  clientMode: string;
+  role: string;
+  scopes: string[];
+  signedAtMs: number;
+  token?: string | null;
+  nonce: string;
+  platform?: string;
+  deviceFamily?: string;
+}): string {
+  return [
+    "v3",
+    params.deviceId,
+    params.clientId,
+    params.clientMode,
+    params.role,
+    params.scopes.join(","),
+    String(params.signedAtMs),
+    params.token ?? "",
+    params.nonce,
+    normalizeOpenClawMetadata(params.platform, "linux"),
+    normalizeOpenClawMetadata(params.deviceFamily, "server"),
+  ].join("|");
+}
+
+async function createOpenClawIdentity(): Promise<OpenClawIdentity> {
+  const keyPair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
+  const rawPublicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+  const fingerprint = new Uint8Array(await crypto.subtle.digest("SHA-256", rawPublicKey));
+
+  return {
+    deviceId: bytesToHex(fingerprint),
+    publicKey: base64UrlEncode(rawPublicKey),
+    privateKey: keyPair.privateKey,
+  };
+}
+
+async function signOpenClawPayload(privateKey: CryptoKey, payload: string): Promise<string> {
+  const data = new TextEncoder().encode(payload);
+  const signature = await crypto.subtle.sign("Ed25519", privateKey, data);
+  return base64UrlEncode(new Uint8Array(signature));
+}
+
+function extractOpenClawText(message: unknown): string {
+  if (!message || typeof message !== "object") return "";
+
+  const value = message as Record<string, unknown>;
+  if (typeof value.text === "string") return value.text;
+  if (typeof value.content === "string") return value.content;
+
+  if (Array.isArray(value.content)) {
+    return value.content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (!part || typeof part !== "object") return "";
+
+        const entry = part as Record<string, unknown>;
+        return entry.type === "text" && typeof entry.text === "string" ? entry.text : "";
+      })
+      .join("");
+  }
+
+  return "";
+}
+
+function diffOpenClawText(previous: string, next: string): string {
+  if (!next) return "";
+  if (!previous) return next;
+  if (next.startsWith(previous)) return next.slice(previous.length);
+  return next === previous ? "" : next;
+}
+
+function getOpenClawErrorMessage(frame: any, fallback: string): string {
+  const message = typeof frame?.error?.message === "string" ? frame.error.message : "";
+  const code = typeof frame?.error?.details?.code === "string" ? frame.error.details.code : "";
+  return [message, code].filter(Boolean).join(" (") + ([message, code].filter(Boolean).length > 1 ? ")" : "") || fallback;
+}
+
 /**
- * OpenClaw WebSocket handler with improved event registration.
- * Registers all event handlers BEFORE the connection opens to avoid missing messages.
+ * OpenClaw WebSocket handler.
+ * Implements the official gateway flow: connect.challenge -> connect(req) -> chat.send(req).
  */
 async function handleOpenClaw(
   baseUrl: string,
   apiKey: string,
+  modelName: string,
   messages: any[],
   userId: string,
 ): Promise<Response> {
@@ -32,6 +138,7 @@ async function handleOpenClaw(
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
+  const sessionKey = modelName && modelName !== "openclaw" ? modelName : "agent:main:main";
 
   const writeSSE = async (data: string) => {
     try {
@@ -47,6 +154,11 @@ async function handleOpenClaw(
   (async () => {
     let done = false;
     let ws: WebSocket | null = null;
+    let challengeReceived = false;
+    let connectRequestId: string | null = null;
+    let chatRequestId: string | null = null;
+    let chatSent = false;
+    const emittedTextByRunId = new Map<string, string>();
 
     const finalize = async () => {
       if (done) return;
@@ -60,60 +172,188 @@ async function handleOpenClaw(
       try { await writer.close(); } catch { /* ignore */ }
     };
 
+    const sendAssistantDelta = async (content: string) => {
+      if (!content) return;
+      await writeSSE(JSON.stringify({
+        choices: [{ delta: { content }, index: 0, finish_reason: null }],
+      }));
+    };
+
     try {
       ws = new WebSocket(wsEndpoint);
 
-      // Register ALL handlers immediately, before open
       ws.onmessage = async (event) => {
         try {
           const raw = typeof event.data === "string" ? event.data : "";
           console.log(`[openclaw] raw msg: ${raw.slice(0, 300)}`);
+          if (!raw.trim()) return;
 
           const data = JSON.parse(raw);
 
-          if (data.type === "token" || data.type === "chunk") {
-            const content = data.content || data.token || data.text || "";
-            if (content) {
-              await writeSSE(JSON.stringify({
-                choices: [{ delta: { content }, index: 0, finish_reason: null }],
-              }));
+          if (data.type === "event") {
+            if (data.event === "connect.challenge") {
+              if (connectRequestId) return;
+
+              challengeReceived = true;
+              const nonce = typeof data.payload?.nonce === "string" ? data.payload.nonce.trim() : "";
+              if (!nonce) {
+                await sendAssistantDelta("\n\n[错误] OpenClaw 未返回有效的 connect.challenge nonce");
+                await finalize();
+                ws?.close();
+                return;
+              }
+
+              const role = "operator";
+              const scopes = ["operator.read", "operator.write"];
+              const clientId = "gateway-client";
+              const clientMode = "backend";
+              const platform = "linux";
+              const deviceFamily = "server";
+              const identity = await createOpenClawIdentity();
+              const signedAtMs = Date.now();
+              const signaturePayload = buildDeviceAuthPayloadV3({
+                deviceId: identity.deviceId,
+                clientId,
+                clientMode,
+                role,
+                scopes,
+                signedAtMs,
+                token: apiKey || null,
+                nonce,
+                platform,
+                deviceFamily,
+              });
+              const signature = await signOpenClawPayload(identity.privateKey, signaturePayload);
+
+              connectRequestId = crypto.randomUUID();
+              const connectFrame = {
+                type: "req",
+                id: connectRequestId,
+                method: "connect",
+                params: {
+                  minProtocol: 3,
+                  maxProtocol: 3,
+                  client: {
+                    id: clientId,
+                    version: "1.0.0",
+                    platform,
+                    deviceFamily,
+                    mode: clientMode,
+                  },
+                  role,
+                  scopes,
+                  caps: [],
+                  auth: apiKey ? { token: apiKey } : undefined,
+                  device: {
+                    id: identity.deviceId,
+                    publicKey: identity.publicKey,
+                    signature,
+                    signedAt: signedAtMs,
+                    nonce,
+                  },
+                },
+              };
+
+              console.log(`[openclaw] sending connect for sessionKey=${sessionKey}`);
+              ws?.send(JSON.stringify(connectFrame));
+              return;
             }
-          } else if (data.type === "done" || data.type === "end" || data.type === "complete") {
-            await finalize();
-            ws?.close();
-          } else if (data.type === "error") {
-            await writeSSE(JSON.stringify({
-              choices: [{ delta: { content: `\n\n[错误] ${data.message || "OpenClaw 返回错误"}` }, index: 0, finish_reason: null }],
-            }));
-            await finalize();
-            ws?.close();
-          } else if (data.type === "message" && data.content) {
-            // Full message in one event
-            await writeSSE(JSON.stringify({
-              choices: [{ delta: { content: data.content }, index: 0, finish_reason: null }],
-            }));
-            await finalize();
-            ws?.close();
-          } else if (data.type === "response" && (data.content || data.text || data.message)) {
-            const content = data.content || data.text || (typeof data.message === "string" ? data.message : "");
-            if (content) {
-              await writeSSE(JSON.stringify({
-                choices: [{ delta: { content }, index: 0, finish_reason: null }],
-              }));
+
+            if (data.event === "chat") {
+              const payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+              const eventSessionKey = typeof payload.sessionKey === "string" ? payload.sessionKey : "";
+              if (eventSessionKey && eventSessionKey !== sessionKey) {
+                console.log(`[openclaw] ignoring chat event for sessionKey=${eventSessionKey}`);
+                return;
+              }
+
+              const state = typeof payload.state === "string" ? payload.state : "";
+              const runId = typeof payload.runId === "string" ? payload.runId : "default";
+              const fullText = extractOpenClawText(payload.message);
+              const deltaText = typeof payload.delta === "string"
+                ? payload.delta
+                : diffOpenClawText(emittedTextByRunId.get(runId) || "", fullText);
+
+              if (fullText) {
+                emittedTextByRunId.set(runId, fullText);
+              }
+
+              if (deltaText) {
+                await sendAssistantDelta(deltaText);
+              }
+
+              if (state === "final") {
+                await finalize();
+                ws?.close();
+              } else if (state === "error") {
+                const errorMessage = typeof payload.errorMessage === "string"
+                  ? payload.errorMessage
+                  : "OpenClaw 返回错误";
+                await sendAssistantDelta(`\n\n[错误] ${errorMessage}`);
+                await finalize();
+                ws?.close();
+              }
+              return;
             }
-            await finalize();
-            ws?.close();
-          } else {
-            console.log(`[openclaw] ignoring event type: ${data.type}`);
+
+            if (data.event !== "tick") {
+              console.log(`[openclaw] ignoring event type: ${data.event}`);
+            }
+            return;
           }
+
+          if (data.type === "res") {
+            if (connectRequestId && data.id === connectRequestId) {
+              if (!data.ok) {
+                await sendAssistantDelta(`\n\n[错误] ${getOpenClawErrorMessage(data, "OpenClaw connect 失败")}`);
+                await finalize();
+                ws?.close();
+                return;
+              }
+
+              if (!chatSent) {
+                chatSent = true;
+                chatRequestId = crypto.randomUUID();
+                const chatFrame = {
+                  type: "req",
+                  id: chatRequestId,
+                  method: "chat.send",
+                  params: {
+                    sessionKey,
+                    message: userContent,
+                    deliver: false,
+                    idempotencyKey: crypto.randomUUID(),
+                  },
+                };
+
+                console.log(`[openclaw] connect ok, sending chat.send to ${sessionKey}: ${userContent.slice(0, 100)}`);
+                ws?.send(JSON.stringify(chatFrame));
+              }
+              return;
+            }
+
+            if (chatRequestId && data.id === chatRequestId) {
+              if (!data.ok) {
+                await sendAssistantDelta(`\n\n[错误] ${getOpenClawErrorMessage(data, "chat.send 调用失败")}`);
+                await finalize();
+                ws?.close();
+                return;
+              }
+
+              const status = typeof data.payload?.status === "string" ? data.payload.status : "unknown";
+              console.log(`[openclaw] chat.send ack status=${status}`);
+              return;
+            }
+
+            console.log(`[openclaw] response for unknown request: ${data.id}`);
+            return;
+          }
+
+          console.log(`[openclaw] ignoring frame type: ${data.type}`);
         } catch (parseErr) {
-          // Not JSON — treat as plain text content
           const text = typeof event.data === "string" ? event.data : "";
           if (text && text.trim()) {
-            console.log(`[openclaw] non-JSON msg, treating as text: ${text.slice(0, 100)}`);
-            await writeSSE(JSON.stringify({
-              choices: [{ delta: { content: text }, index: 0, finish_reason: null }],
-            }));
+            console.log(`[openclaw] non-JSON msg: ${text.slice(0, 100)}`);
           }
         }
       };
@@ -129,8 +369,13 @@ async function handleOpenClaw(
       };
 
       ws.onclose = async (e) => {
-        console.log(`[openclaw] ws closed code=${e.code} reason=${e.reason} wasClean=${e.wasClean}`);
+        console.log(`[openclaw] ws closed code=${e.code} reason=${e.reason} wasClean=${e.wasClean} challengeReceived=${challengeReceived} connectSent=${Boolean(connectRequestId)} chatSent=${chatSent}`);
         if (!done) {
+          if (!challengeReceived) {
+            await sendAssistantDelta("\n\n[错误] OpenClaw 未返回 connect.challenge，连接被关闭");
+          } else if (connectRequestId && !chatSent) {
+            await sendAssistantDelta("\n\n[错误] OpenClaw 握手已开始，但 connect 未完成");
+          }
           await finalize();
         }
       };
@@ -156,29 +401,10 @@ async function handleOpenClaw(
       ws.onerror = async (e) => {
         console.error(`[openclaw] ws error after open:`, e);
         if (!done) {
-          await writeSSE(JSON.stringify({
-            choices: [{ delta: { content: "\n\n[连接错误] WebSocket 异常" }, index: 0, finish_reason: null }],
-          }));
+          await sendAssistantDelta("\n\n[连接错误] WebSocket 异常");
           await finalize();
         }
       };
-
-      // Send auth if api_key is set
-      if (apiKey) {
-        const authMsg = JSON.stringify({ type: "auth", token: apiKey });
-        console.log(`[openclaw] sending auth`);
-        ws.send(authMsg);
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-      // Send chat message
-      const chatMsg = JSON.stringify({
-        type: "chat",
-        message: userContent,
-        session_id: sessionId,
-      });
-      console.log(`[openclaw] sending chat: ${userContent.slice(0, 100)}`);
-      ws.send(chatMsg);
 
       // Wait for completion or timeout
       await new Promise<void>((resolve) => {
@@ -282,7 +508,7 @@ serve(async (req) => {
 
     // --- OpenClaw: WebSocket ---
     if (providerType === "openclaw") {
-      return await handleOpenClaw(baseUrl, apiKey, messages, userId);
+      return await handleOpenClaw(baseUrl, apiKey, modelName, messages, userId);
     }
 
     // --- OpenAI-compatible: standard REST ---
