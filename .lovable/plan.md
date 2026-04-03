@@ -1,70 +1,96 @@
-# 实施方案
-
-## 问题 1：Web 端 Mock 数据排查
-
-以下模块仍在使用硬编码 mock 数据：
 
 
-| 模块       | 文件                                      | Mock 来源                                                | 状态       |
-| -------- | --------------------------------------- | ------------------------------------------------------ | -------- |
-| 知识库      | `src/pages/KnowledgeBase.tsx`           | `mockFiles`, `defaultFolders` from `knowledgeFiles.ts` | 需替换      |
-| 会议纪要     | `src/pages/MeetingMinutes.tsx`          | `mockMeetings`, `meetingFolders` from `meetingData.ts` | 需替换      |
-| 聊天回复     | `src/components/chat/ChatInput.tsx`     | `mockResponses` 硬编码回复                                  | 需替换      |
-| 欢迎页      | `src/components/chat/WelcomeScreen.tsx` | 硬编码用户名 "MOUMOU"                                        | 需改为动态    |
-| Coach 数据 | `src/data/coaches.ts`                   | 前端硬编码，DB 已有 agents 数据                                  | 可从 DB 读取 |
+# LLM 模型配置 + 前端模型选择 + 输入框交互增强
 
+## 概述
 
-**灵感笔记已接通数据库，无需改动。**
+根据截图参考，实现五个功能：
+1. 管理后台新增「LLM 模型配置」页面（CRUD 模型、设默认、启用/停用）
+2. 前端聊天输入框底部的模型下拉选择器，从数据库读取可用模型
+3. 模型标签（如"默认""私有化"）由后台配置驱动
+4. "+"按钮点击展开下拉菜单（上传照片或文件、知识库）
+5. "工具"按钮点击展开下拉菜单（红蓝军对抗、联网搜索）
 
-### 改动方案
+## 数据库变更
 
-**知识库** — 新建 `knowledge_files` 和 `knowledge_folders` 两张表 + RLS，`KnowledgeBase.tsx` 从数据库读取文件/文件夹列表，上传文件存到 Storage bucket。
+新建 `llm_models` 表：
 
-**会议纪要** — 新建 `meetings` 表（含 transcript/aiSummary JSON 字段）+ RLS，`MeetingMinutes.tsx` 从数据库读取。
+```sql
+CREATE TABLE public.llm_models (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_name TEXT NOT NULL,          -- 模型标识，如 gpt-4o
+  display_name TEXT NOT NULL,        -- 展示名称，如 GPT-4o 高速版
+  provider TEXT NOT NULL DEFAULT 'OpenAI',  -- 供应商
+  base_url TEXT NOT NULL DEFAULT 'https://api.openai.com/v1',
+  api_key TEXT,                      -- 存储在表中（管理员可见）
+  input_price NUMERIC DEFAULT 1,     -- 输入积分单价
+  output_price NUMERIC DEFAULT 2,    -- 输出积分单价
+  context_window INTEGER DEFAULT 128000,
+  enabled BOOLEAN DEFAULT true,
+  is_default BOOLEAN DEFAULT false,
+  sort_order INTEGER DEFAULT 0,      -- 排序权重
+  tags TEXT[] DEFAULT '{}',          -- 标签，如 {"默认","私有化"}
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
 
-**聊天回复** — `ChatInput.tsx` 中的 `mockResponses` 和 `setTimeout` 模拟回复暂保留（因为 AI 回复需要接入真实 AI 服务，目前还没有配置），现在改为使用真实AI，在管理后台可以配置AI的key和url等，默认用lovable自带的AI对话。
+RLS：仅管理员可 CRUD，认证用户可 SELECT enabled 模型。
 
-**欢迎页** — 从 `useAuth` 获取用户 profile，显示真实用户名。
+## 管理后台：LLM 模型配置页
 
-**Coach 数据** — `coaches.ts` 保留作为前端配色/UI 映射，Agent 列表可从 DB 补充读取。
+**新建文件**：`src/admin/pages/LLMConfig.tsx`
 
----
+参考截图设计：
+- 表格列：模型（display_name + model_name）、供应商、Base URL、输入单价、输出单价、上下文、状态、操作（编辑/设默认/删除）
+- 默认模型显示绿色"默认"标签
+- "+ 添加模型"按钮打开 Dialog，字段：供应商(select)、排序权重、模型标识、展示名称、API Key、Base URL、输入/输出积分单价、上下文窗口、设为默认、标签
+- 编辑复用同一 Dialog
 
-## 问题 2：聊天发送后不跳转到对话详情（Bug 修复）
+**新建文件**：`src/admin/hooks/useLLMModels.ts` — useQuery + useMutation hooks
 
-### 根因
+**修改**：`AdminSidebar.tsx` 添加「LLM 模型」菜单项；`AdminApp.tsx` 添加路由
 
-`ChatInput.handleSend()` 中：
+## 前端：模型选择下拉
 
-1. 调用 `createConversation()` — 内部 `setCurrentId(conv.id)` 是异步的 React state 更新
-2. 紧接着调用 `addMessage()` — 此时 `currentId` 闭包仍是 `null`
-3. `addMessage` 用 `currentId` 匹配对话进行 `map`，找不到匹配，消息丢失
-4. `AppLayout` 中 `showWelcome` 判断 `currentConversation.messages.length === 0` 仍为 true，所以停留在欢迎页
+**修改** `ChatInput.tsx`：
+- 查询 `llm_models` 表获取 enabled 模型列表
+- 底部右侧的"AIYOU-记忆模型"替换为 Popover/DropdownMenu，显示当前选中模型名称 + ChevronDown
+- 点击展开模型列表，选择后切换
+- 模型的 `tags` 数组渲染为标签 chips（替换当前硬编码的"默认""私有化"）
+- 发送消息时将 `model` 字段传给 chat edge function
 
-### 修复方案
+**修改** `supabase/functions/chat/index.ts`：
+- 接收 `model` 和 `base_url`/`api_key` 参数
+- 如果指定了自定义 base_url + api_key，则调用该地址；否则使用 Lovable AI Gateway
+- 需要从数据库查询模型配置（使用 SUPABASE_SERVICE_ROLE_KEY 创建 admin client）
 
-修改 `createConversation` 返回新对话的 `id`，`ChatInput.handleSend()` 拿到 id 后直接将消息追加到该对话中，不依赖异步 state。
+## 前端："+" 按钮下拉
 
-具体改动：
+**修改** `ChatInput.tsx`：
+- 点击"+"显示 Popover，包含两个选项：
+  - 📎 上传照片或文件
+  - 📊 知识库
+- 上传照片：打开文件选择器
+- 知识库：导航到 /knowledge 或打开侧边栏
 
-`**src/contexts/ChatContext.tsx**`：
+## 前端："工具" 按钮下拉
 
-- `createConversation` 返回 `string`（新对话 id）
-- `addMessage` 增加可选参数 `targetConvId?: string`，优先使用该参数而非 `currentId`
-
-`**src/components/chat/ChatInput.tsx**`：
-
-- `handleSend` 中：`const convId = currentConversation?.id ?? createConversation(...)` 
-- `addMessage` 调用时传入 `convId`
+**修改** `ChatInput.tsx`：
+- 点击"工具"显示 Popover，包含两个选项：
+  - 🏰 红蓝军对抗
+  - 🌐 联网搜索
+- 当前为 UI 占位，点击显示 toast 提示"功能开发中"
 
 ## 文件变更清单
 
+| 操作 | 文件 |
+|------|------|
+| 新建 | migration — `llm_models` 表 + RLS |
+| 新建 | `src/admin/pages/LLMConfig.tsx` |
+| 新建 | `src/admin/hooks/useLLMModels.ts` |
+| 编辑 | `src/admin/layout/AdminSidebar.tsx` — 添加菜单项 |
+| 编辑 | `src/admin/AdminApp.tsx` — 添加路由 |
+| 编辑 | `src/components/chat/ChatInput.tsx` — 模型选择、+下拉、工具下拉 |
+| 编辑 | `supabase/functions/chat/index.ts` — 支持动态模型配置 |
 
-| 操作  | 文件                                                                     |
-| --- | ---------------------------------------------------------------------- |
-| 编辑  | `src/contexts/ChatContext.tsx` — 修复 createConversation/addMessage 竞态   |
-| 编辑  | `src/components/chat/ChatInput.tsx` — 使用返回的 convId                     |
-| 编辑  | `src/components/chat/WelcomeScreen.tsx` — 显示真实用户名                      |
-| 新建  | migration — `knowledge_files`, `knowledge_folders`, `meetings` 表 + RLS |
-| 编辑  | `src/pages/KnowledgeBase.tsx` — 从数据库读取                                 |
-| 编辑  | `src/pages/MeetingMinutes.tsx` — 从数据库读取                                |
