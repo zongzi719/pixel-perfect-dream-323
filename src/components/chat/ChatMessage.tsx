@@ -1,6 +1,8 @@
 import { Message } from '@/types';
 import { coaches } from '@/data/coaches';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
   message: Message;
