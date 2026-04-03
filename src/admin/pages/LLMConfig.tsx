@@ -340,7 +340,7 @@ export default function LLMConfig() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
-            <Button onClick={handleSave} disabled={createModel.isPending || updateModel.isPending}>
+            <Button onClick={handleSave} disabled={createModel.isPending || updateModel.isPending} className="bg-neutral-900 text-white hover:bg-neutral-800">
               {editingId ? '保存' : '创建'}
             </Button>
           </div>
