@@ -304,7 +304,12 @@ export default function LLMConfig() {
             </div>
             <div className="space-y-2">
               <Label>{isOpenClaw ? 'OpenClaw 服务地址' : 'Base URL'}</Label>
-              <Input placeholder={isOpenClaw ? "如 http://your-server:18789" : "https://ai.gateway.lovable.dev/v1"} value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} />
+              <Input placeholder={isOpenClaw ? "ws://your-server:18789" : "https://ai.gateway.lovable.dev/v1"} value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} />
+              {isOpenClaw && (
+                <p className="text-xs text-neutral-400">
+                  支持 ws:// 或 http:// 地址。Docker 环境本地连接请用 ws://host.docker.internal:18789
+                </p>
+              )}
             </div>
 
             {!isOpenClaw && (
