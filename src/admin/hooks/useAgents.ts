@@ -42,3 +42,26 @@ export function useCreateAgent() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-agents"] }),
   });
 }
+
+export function useUpdateAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...agent }: { id: string } & Partial<TablesInsert<"agents">>) => {
+      const { error } = await supabase.from("agents").update(agent).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-agents"] }),
+  });
+}
+
+export function useAgent(id?: string) {
+  return useQuery({
+    queryKey: ["admin-agent", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("agents").select("*").eq("id", id!).single();
+      if (error) throw error;
+      return data as Agent;
+    },
+    enabled: !!id,
+  });
+}

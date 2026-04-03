@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Pencil } from "lucide-react";
 
 export default function AgentList() {
   const navigate = useNavigate();
@@ -42,9 +42,14 @@ export default function AgentList() {
                 <div className="flex flex-wrap gap-1 mb-3">
                   {(agent.tags ?? []).map(tag => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
                 </div>
-                <div className="flex justify-between text-xs text-neutral-500">
+                <div className="flex justify-between items-center text-xs text-neutral-500">
                   <span>视角: {agent.perspective}</span>
-                  <span>使用: {agent.usage_count.toLocaleString()}次</span>
+                  <div className="flex items-center gap-2">
+                    <span>使用: {agent.usage_count.toLocaleString()}次</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/admin/agents/${agent.id}/edit`)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
