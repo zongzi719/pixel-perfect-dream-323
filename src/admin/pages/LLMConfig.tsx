@@ -304,7 +304,12 @@ export default function LLMConfig() {
             </div>
             <div className="space-y-2">
               <Label>{isOpenClaw ? 'OpenClaw 服务地址' : 'Base URL'}</Label>
-              <Input placeholder={isOpenClaw ? "如 http://your-server:18789" : "https://ai.gateway.lovable.dev/v1"} value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} />
+              <Input placeholder={isOpenClaw ? "ws://your-server:18789" : "https://ai.gateway.lovable.dev/v1"} value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} />
+              {isOpenClaw && (
+                <p className="text-xs text-neutral-400">
+                  支持 ws:// 或 http:// 地址。Docker 环境本地连接请用 ws://host.docker.internal:18789
+                </p>
+              )}
             </div>
 
             {!isOpenClaw && (
@@ -346,18 +351,19 @@ export default function LLMConfig() {
                 if (!form.base_url) { toast.error('请先填写服务地址'); return; }
                 setTestingConnection(true);
                 try {
+                  // For OpenClaw: use HTTP health check; for others: GET /models
+                  const cleanUrl = form.base_url.replace(/\/+$/, '').replace(/^ws(s?):\/\//, 'http$1://');
                   const testUrl = form.provider_type === 'openclaw'
-                    ? `${form.base_url.replace(/\/+$/, '')}/api/sessions/test-connection/messages`
-                    : `${form.base_url.replace(/\/+$/, '')}/models`;
+                    ? `${cleanUrl}/health`
+                    : `${cleanUrl}/models`;
                   const controller = new AbortController();
                   const tid = setTimeout(() => controller.abort(), 15000);
                   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
                   if (form.api_key) headers['Authorization'] = `Bearer ${form.api_key}`;
                   const resp = await fetch(testUrl, {
-                    method: form.provider_type === 'openclaw' ? 'POST' : 'GET',
+                    method: 'GET',
                     headers,
                     signal: controller.signal,
-                    ...(form.provider_type === 'openclaw' ? { body: JSON.stringify({ message: 'ping' }) } : {}),
                   });
                   clearTimeout(tid);
                   if (resp.ok || resp.status === 200 || resp.status === 201) {
