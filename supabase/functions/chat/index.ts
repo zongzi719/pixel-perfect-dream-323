@@ -7,8 +7,8 @@ const corsHeaders = {
 };
 
 /**
- * OpenClaw REST-first handler.
- * Tries HTTP POST (OpenAI-compatible) first, falls back to WebSocket.
+ * OpenClaw WebSocket handler with improved event registration.
+ * Registers all event handlers BEFORE the connection opens to avoid missing messages.
  */
 async function handleOpenClaw(
   baseUrl: string,
@@ -16,125 +16,202 @@ async function handleOpenClaw(
   messages: any[],
   userId: string,
 ): Promise<Response> {
-  // Convert ws(s) to http(s) for REST calls
-  const httpUrl = baseUrl.replace(/\/+$/, "").replace(/^ws(s?):\/\//, "http$1://");
-  if (!httpUrl.startsWith("http")) {
-    return handleOpenClawRest(`https://${httpUrl}`, apiKey, messages);
-  }
-  return handleOpenClawRest(httpUrl, apiKey, messages);
-}
-
-/**
- * OpenClaw via REST (OpenAI-compatible /v1/chat/completions).
- */
-async function handleOpenClawRest(
-  httpUrl: string,
-  apiKey: string,
-  messages: any[],
-): Promise<Response> {
-  // Try multiple possible endpoints
-  const endpoints = [
-    `${httpUrl}/v1/chat/completions`,
-    `${httpUrl}/chat/completions`,
-    `${httpUrl}/chat`,
-  ];
-
-  let lastError: string = "";
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`[chat/openclaw-rest] trying POST ${endpoint}`);
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          messages: messages.some((m: any) => m.role === "system")
-            ? messages
-            : [
-                { role: "system", content: "你是AIYOU智能助手，一位专业、友好的AI顾问。你擅长商业分析、战略规划、产品设计等领域。请用中文回答，保持简洁有深度。" },
-                ...messages,
-              ],
-          stream: true,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        const body = await response.text();
-        console.log(`[chat/openclaw-rest] ${endpoint} returned ${response.status}: ${body.slice(0, 200)}`);
-        lastError = `${response.status}: ${body.slice(0, 100)}`;
-        continue;
-      }
-
-      const contentType = response.headers.get("content-type") || "";
-      console.log(`[chat/openclaw-rest] success! content-type=${contentType}`);
-
-      // SSE stream — pass through directly
-      if (contentType.includes("text/event-stream") || contentType.includes("stream")) {
-        return new Response(response.body, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });
-      }
-
-      // JSON response — wrap as SSE
-      const body = await response.text();
-      console.log(`[chat/openclaw-rest] got JSON response (${body.length} bytes)`);
-
-      let content = "";
-      try {
-        const json = JSON.parse(body);
-        // OpenAI format
-        if (json.choices?.[0]?.message?.content) {
-          content = json.choices[0].message.content;
-        } else if (json.response) {
-          content = json.response;
-        } else if (json.content) {
-          content = json.content;
-        } else if (json.message) {
-          content = typeof json.message === "string" ? json.message : JSON.stringify(json.message);
-        } else {
-          content = body;
-        }
-      } catch {
-        content = body;
-      }
-
-      // Build SSE from the full response
-      const encoder = new TextEncoder();
-      const sseChunk = `data: ${JSON.stringify({
-        choices: [{ delta: { content }, index: 0, finish_reason: null }],
-      })}\n\ndata: ${JSON.stringify({
-        choices: [{ delta: {}, index: 0, finish_reason: "stop" }],
-      })}\n\ndata: [DONE]\n\n`;
-
-      return new Response(encoder.encode(sseChunk), {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.log(`[chat/openclaw-rest] ${endpoint} failed: ${msg}`);
-      lastError = msg;
-      continue;
-    }
+  // Ensure ws(s) protocol
+  let wsUrl = baseUrl.replace(/\/+$/, "");
+  if (wsUrl.startsWith("http://")) wsUrl = wsUrl.replace("http://", "ws://");
+  else if (wsUrl.startsWith("https://")) wsUrl = wsUrl.replace("https://", "wss://");
+  if (!wsUrl.startsWith("ws://") && !wsUrl.startsWith("wss://")) {
+    wsUrl = `wss://${wsUrl}`;
   }
 
-  // All REST endpoints failed — return error
-  console.error(`[chat/openclaw-rest] all endpoints failed. last error: ${lastError}`);
+  const sessionId = `user_${userId}_${Date.now()}`;
+  const wsEndpoint = `${wsUrl}/ws/${sessionId}`;
+
+  console.log(`[openclaw] connecting to ${wsEndpoint}`);
+
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
   const encoder = new TextEncoder();
-  const errorSSE = `data: ${JSON.stringify({
-    choices: [{ delta: { content: `\n\n[错误] OpenClaw REST 请求失败: ${lastError}` }, index: 0, finish_reason: null }],
-  })}\n\ndata: [DONE]\n\n`;
 
-  return new Response(encoder.encode(errorSSE), {
+  const writeSSE = async (data: string) => {
+    try {
+      await writer.write(encoder.encode(`data: ${data}\n\n`));
+    } catch { /* stream closed */ }
+  };
+
+  // Extract the last user message
+  const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+  const userContent = lastUserMsg?.content || "";
+
+  // Launch WS in background
+  (async () => {
+    let done = false;
+    let ws: WebSocket | null = null;
+
+    const finalize = async () => {
+      if (done) return;
+      done = true;
+      try {
+        await writeSSE(JSON.stringify({
+          choices: [{ delta: {}, index: 0, finish_reason: "stop" }],
+        }));
+        await writeSSE("[DONE]");
+      } catch { /* ignore */ }
+      try { await writer.close(); } catch { /* ignore */ }
+    };
+
+    try {
+      ws = new WebSocket(wsEndpoint);
+
+      // Register ALL handlers immediately, before open
+      ws.onmessage = async (event) => {
+        try {
+          const raw = typeof event.data === "string" ? event.data : "";
+          console.log(`[openclaw] raw msg: ${raw.slice(0, 300)}`);
+
+          const data = JSON.parse(raw);
+
+          if (data.type === "token" || data.type === "chunk") {
+            const content = data.content || data.token || data.text || "";
+            if (content) {
+              await writeSSE(JSON.stringify({
+                choices: [{ delta: { content }, index: 0, finish_reason: null }],
+              }));
+            }
+          } else if (data.type === "done" || data.type === "end" || data.type === "complete") {
+            await finalize();
+            ws?.close();
+          } else if (data.type === "error") {
+            await writeSSE(JSON.stringify({
+              choices: [{ delta: { content: `\n\n[错误] ${data.message || "OpenClaw 返回错误"}` }, index: 0, finish_reason: null }],
+            }));
+            await finalize();
+            ws?.close();
+          } else if (data.type === "message" && data.content) {
+            // Full message in one event
+            await writeSSE(JSON.stringify({
+              choices: [{ delta: { content: data.content }, index: 0, finish_reason: null }],
+            }));
+            await finalize();
+            ws?.close();
+          } else if (data.type === "response" && (data.content || data.text || data.message)) {
+            const content = data.content || data.text || (typeof data.message === "string" ? data.message : "");
+            if (content) {
+              await writeSSE(JSON.stringify({
+                choices: [{ delta: { content }, index: 0, finish_reason: null }],
+              }));
+            }
+            await finalize();
+            ws?.close();
+          } else {
+            console.log(`[openclaw] ignoring event type: ${data.type}`);
+          }
+        } catch (parseErr) {
+          // Not JSON — treat as plain text content
+          const text = typeof event.data === "string" ? event.data : "";
+          if (text && text.trim()) {
+            console.log(`[openclaw] non-JSON msg, treating as text: ${text.slice(0, 100)}`);
+            await writeSSE(JSON.stringify({
+              choices: [{ delta: { content: text }, index: 0, finish_reason: null }],
+            }));
+          }
+        }
+      };
+
+      ws.onerror = async (e) => {
+        console.error(`[openclaw] ws error:`, e);
+        if (!done) {
+          await writeSSE(JSON.stringify({
+            choices: [{ delta: { content: "\n\n[连接错误] WebSocket 异常" }, index: 0, finish_reason: null }],
+          }));
+          await finalize();
+        }
+      };
+
+      ws.onclose = async (e) => {
+        console.log(`[openclaw] ws closed code=${e.code} reason=${e.reason} wasClean=${e.wasClean}`);
+        if (!done) {
+          await finalize();
+        }
+      };
+
+      // Wait for open
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("WebSocket 连接超时 (15s)")), 15000);
+        ws!.onopen = () => {
+          clearTimeout(timeout);
+          console.log(`[openclaw] connected, session=${sessionId}`);
+          resolve();
+        };
+        // If onerror fires before onopen
+        const origErr = ws!.onerror;
+        ws!.onerror = (e) => {
+          clearTimeout(timeout);
+          origErr?.(e);
+          reject(new Error("WebSocket connection failed"));
+        };
+      });
+
+      // Re-register onerror after open (the open promise may have overridden it)
+      ws.onerror = async (e) => {
+        console.error(`[openclaw] ws error after open:`, e);
+        if (!done) {
+          await writeSSE(JSON.stringify({
+            choices: [{ delta: { content: "\n\n[连接错误] WebSocket 异常" }, index: 0, finish_reason: null }],
+          }));
+          await finalize();
+        }
+      };
+
+      // Send auth if api_key is set
+      if (apiKey) {
+        const authMsg = JSON.stringify({ type: "auth", token: apiKey });
+        console.log(`[openclaw] sending auth`);
+        ws.send(authMsg);
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      // Send chat message
+      const chatMsg = JSON.stringify({
+        type: "chat",
+        message: userContent,
+        session_id: sessionId,
+      });
+      console.log(`[openclaw] sending chat: ${userContent.slice(0, 100)}`);
+      ws.send(chatMsg);
+
+      // Wait for completion or timeout
+      await new Promise<void>((resolve) => {
+        const maxWait = setTimeout(() => {
+          if (!done) {
+            console.warn(`[openclaw] timeout (120s), closing`);
+            ws?.close();
+          }
+          resolve();
+        }, 120000);
+
+        const check = setInterval(() => {
+          if (done) {
+            clearTimeout(maxWait);
+            clearInterval(check);
+            resolve();
+          }
+        }, 500);
+      });
+
+    } catch (err) {
+      console.error(`[openclaw] error:`, err);
+      const errMsg = err instanceof Error ? err.message : "OpenClaw 连接失败";
+      try {
+        await writeSSE(JSON.stringify({
+          choices: [{ delta: { content: `\n\n[错误] ${errMsg}` }, index: 0, finish_reason: null }],
+        }));
+        await finalize();
+      } catch { /* ignore */ }
+    }
+  })();
+
+  return new Response(readable, {
     headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
   });
 }
@@ -145,7 +222,6 @@ serve(async (req) => {
   try {
     const { messages, model_id } = await req.json();
 
-    // Extract user ID from JWT
     let userId = "anonymous";
     const authHeader = req.headers.get("authorization");
     if (authHeader?.startsWith("Bearer ")) {
@@ -156,7 +232,6 @@ serve(async (req) => {
       } catch { /* ignore */ }
     }
 
-    // Determine model config
     let baseUrl = "https://ai.gateway.lovable.dev/v1";
     let apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
     let modelName = "google/gemini-3-flash-preview";
@@ -205,12 +280,12 @@ serve(async (req) => {
 
     console.log(`[chat] provider=${providerType} model=${modelName} baseUrl=${baseUrl} user=${userId}`);
 
-    // --- OpenClaw branch: REST-first ---
+    // --- OpenClaw: WebSocket ---
     if (providerType === "openclaw") {
       return await handleOpenClaw(baseUrl, apiKey, messages, userId);
     }
 
-    // --- OpenAI-compatible branch: standard REST ---
+    // --- OpenAI-compatible: standard REST ---
     const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
       method: "POST",
       headers: {
