@@ -161,16 +161,16 @@ export default function LLMConfig() {
       <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400">模型</TableHead>
-              <TableHead className="text-neutral-400">类型</TableHead>
-              <TableHead className="text-neutral-400">供应商</TableHead>
-              <TableHead className="text-neutral-400">Base URL</TableHead>
-              <TableHead className="text-neutral-400">输入单价</TableHead>
-              <TableHead className="text-neutral-400">输出单价</TableHead>
-              <TableHead className="text-neutral-400">标签</TableHead>
-              <TableHead className="text-neutral-400">状态</TableHead>
-              <TableHead className="text-neutral-400 text-right">操作</TableHead>
+            <TableRow className="border-neutral-200 hover:bg-transparent">
+              <TableHead className="text-neutral-500">模型</TableHead>
+              <TableHead className="text-neutral-500">类型</TableHead>
+              <TableHead className="text-neutral-500">供应商</TableHead>
+              <TableHead className="text-neutral-500">Base URL</TableHead>
+              <TableHead className="text-neutral-500">输入单价</TableHead>
+              <TableHead className="text-neutral-500">输出单价</TableHead>
+              <TableHead className="text-neutral-500">标签</TableHead>
+              <TableHead className="text-neutral-500">状态</TableHead>
+              <TableHead className="text-neutral-500 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
