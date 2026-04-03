@@ -150,43 +150,43 @@ export default function LLMConfig() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">LLM 模型配置</h1>
-          <p className="text-neutral-400 text-sm mt-1">管理大语言模型接入配置</p>
+          <h1 className="text-2xl font-bold text-neutral-900">LLM 模型配置</h1>
+          <p className="text-neutral-500 text-sm mt-1">管理大语言模型接入配置</p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
+        <Button onClick={openCreate} className="gap-2 bg-neutral-900 text-white hover:bg-neutral-800">
           <Plus className="h-4 w-4" /> 添加模型
         </Button>
       </div>
 
-      <div className="border border-neutral-800 rounded-lg overflow-hidden">
+      <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400">模型</TableHead>
-              <TableHead className="text-neutral-400">类型</TableHead>
-              <TableHead className="text-neutral-400">供应商</TableHead>
-              <TableHead className="text-neutral-400">Base URL</TableHead>
-              <TableHead className="text-neutral-400">输入单价</TableHead>
-              <TableHead className="text-neutral-400">输出单价</TableHead>
-              <TableHead className="text-neutral-400">标签</TableHead>
-              <TableHead className="text-neutral-400">状态</TableHead>
-              <TableHead className="text-neutral-400 text-right">操作</TableHead>
+            <TableRow className="border-neutral-200 hover:bg-transparent">
+              <TableHead className="text-neutral-500">模型</TableHead>
+              <TableHead className="text-neutral-500">类型</TableHead>
+              <TableHead className="text-neutral-500">供应商</TableHead>
+              <TableHead className="text-neutral-500">Base URL</TableHead>
+              <TableHead className="text-neutral-500">输入单价</TableHead>
+              <TableHead className="text-neutral-500">输出单价</TableHead>
+              <TableHead className="text-neutral-500">标签</TableHead>
+              <TableHead className="text-neutral-500">状态</TableHead>
+              <TableHead className="text-neutral-500 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-neutral-500 py-10">加载中...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-neutral-400 py-10">加载中...</TableCell></TableRow>
             ) : models.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-neutral-500 py-10">暂无模型</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-neutral-400 py-10">暂无模型</TableCell></TableRow>
             ) : models.map(m => (
-              <TableRow key={m.id} className="border-neutral-800">
+              <TableRow key={m.id} className="border-neutral-200">
                 <TableCell>
                   <div>
-                    <div className="text-white font-medium flex items-center gap-2">
+                    <div className="text-neutral-900 font-medium flex items-center gap-2">
                       {m.display_name}
                       {m.is_default && <Badge variant="outline" className="text-green-400 border-green-600 text-xs">默认</Badge>}
                     </div>
-                    <div className="text-neutral-500 text-xs">{m.model_name}</div>
+                    <div className="text-neutral-400 text-xs">{m.model_name}</div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -195,13 +195,13 @@ export default function LLMConfig() {
                       <Brain className="h-3 w-3" /> 记忆
                     </Badge>
                   ) : (
-                    <span className="text-neutral-400 text-xs">标准</span>
+                    <span className="text-neutral-500 text-xs">标准</span>
                   )}
                 </TableCell>
-                <TableCell className="text-neutral-300">{m.provider}</TableCell>
-                <TableCell className="text-neutral-400 text-xs max-w-[200px] truncate">{m.base_url}</TableCell>
-                <TableCell className="text-neutral-300">{m.input_price}</TableCell>
-                <TableCell className="text-neutral-300">{m.output_price}</TableCell>
+                <TableCell className="text-neutral-700">{m.provider}</TableCell>
+                <TableCell className="text-neutral-500 text-xs max-w-[200px] truncate">{m.base_url}</TableCell>
+                <TableCell className="text-neutral-700">{m.input_price}</TableCell>
+                <TableCell className="text-neutral-700">{m.output_price}</TableCell>
                 <TableCell>
                   <div className="flex gap-1 flex-wrap">
                     {(m.tags || []).map(t => (
@@ -217,14 +217,14 @@ export default function LLMConfig() {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     {!m.is_default && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-yellow-400" onClick={() => handleSetDefault(m.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-yellow-500" onClick={() => handleSetDefault(m.id)}>
                         <Star className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-white" onClick={() => openEdit(m)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-neutral-900" onClick={() => openEdit(m)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-400" onClick={() => handleDelete(m.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-500" onClick={() => handleDelete(m.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -236,7 +236,7 @@ export default function LLMConfig() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-neutral-900 border-neutral-800 text-white">
+        <DialogContent className="sm:max-w-lg bg-white border-neutral-200 text-neutral-900">
           <DialogHeader>
             <DialogTitle>{editingId ? '编辑模型' : '添加模型'}</DialogTitle>
           </DialogHeader>

@@ -97,11 +97,11 @@ export function AdminSidebar() {
     <Sidebar collapsible="icon" className="border-r border-neutral-800 bg-neutral-950">
       <SidebarHeader className="border-b border-neutral-800 p-4">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-bold text-neutral-950">AI</span>
+          <div className="h-8 w-8 rounded-lg bg-neutral-900 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-bold text-white">AI</span>
           </div>
           {!collapsed && (
-            <span className="text-base font-semibold text-white">AI YOU Admin</span>
+            <span className="text-base font-semibold text-neutral-100">AI YOU Admin</span>
           )}
         </div>
       </SidebarHeader>
