@@ -91,7 +91,7 @@ export function ChatInput() {
   const [plusPopoverOpen, setPlusPopoverOpen] = useState(false);
   const [toolsPopoverOpen, setToolsPopoverOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addMessage, createConversation, currentConversation, updateLastAssistantMessage } = useChat();
+  const { addMessage, createConversation, currentConversation, updateLastAssistantMessage, finalizeAssistantMessage } = useChat();
   const { mode, selectedCoaches } = useMode();
   const { data: models = [] } = useLLMModelsPublic();
   const navigate = useNavigate();
@@ -103,67 +103,75 @@ export function ChatInput() {
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
 
-    const convId = currentConversation?.id ?? createConversation(mode, mode === 'decision' ? selectedCoaches : undefined);
     const userContent = input.trim();
     const modelId = currentModel?.id;
-
-    addMessage({ role: 'user', content: userContent }, convId);
     setInput('');
 
-    if (mode === 'decision') {
-      for (let i = 0; i < selectedCoaches.length; i++) {
-        const coachId = selectedCoaches[i];
-        const coach = coaches.find(c => c.id === coachId);
-        const coachRole = coach?.role || '教练';
+    try {
+      const convId = currentConversation?.id ?? await createConversation(mode, mode === 'decision' ? selectedCoaches : undefined);
 
-        addMessage({ role: 'assistant', content: '', coachId, isLoading: true }, convId);
+      await addMessage({ role: 'user', content: userContent }, convId);
+
+      if (mode === 'decision') {
+        for (let i = 0; i < selectedCoaches.length; i++) {
+          const coachId = selectedCoaches[i];
+          const coach = coaches.find(c => c.id === coachId);
+          const coachRole = coach?.role || '教练';
+
+          await addMessage({ role: 'assistant', content: '', coachId, isLoading: true }, convId);
+          setIsStreaming(true);
+
+          let accumulated = '';
+          try {
+            await streamChat({
+              messages: [
+                { role: 'system', content: `你是一位${coachRole}（${coach?.name}），${coach?.description}。请从你的专业角度分析用户的问题，给出有深度的建议。` },
+                { role: 'user', content: userContent },
+              ],
+              model_id: modelId,
+              onDelta: (chunk) => {
+                accumulated += chunk;
+                updateLastAssistantMessage(accumulated, convId);
+              },
+              onDone: () => {},
+            });
+          } catch {
+            if (!accumulated) updateLastAssistantMessage('抱歉，AI 回复出错了。', convId);
+          }
+          await finalizeAssistantMessage(convId);
+        }
+        setIsStreaming(false);
+      } else {
+        await addMessage({ role: 'assistant', content: '', isLoading: true }, convId);
         setIsStreaming(true);
+
+        const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
+        history.push({ role: 'user', content: userContent });
 
         let accumulated = '';
         try {
           await streamChat({
-            messages: [
-              { role: 'system', content: `你是一位${coachRole}（${coach?.name}），${coach?.description}。请从你的专业角度分析用户的问题，给出有深度的建议。` },
-              { role: 'user', content: userContent },
-            ],
+            messages: history,
             model_id: modelId,
             onDelta: (chunk) => {
               accumulated += chunk;
               updateLastAssistantMessage(accumulated, convId);
             },
-            onDone: () => {},
+            onDone: () => setIsStreaming(false),
           });
         } catch {
-          if (!accumulated) updateLastAssistantMessage('抱歉，AI 回复出错了。', convId);
+          setIsStreaming(false);
+          if (!accumulated) updateLastAssistantMessage('抱歉，AI 回复出错了，请稍后再试。', convId);
         }
+        await finalizeAssistantMessage(convId);
       }
+    } catch (err) {
+      console.error('Send error:', err);
+      toast.error('发送失败，请重试');
       setIsStreaming(false);
-    } else {
-      addMessage({ role: 'assistant', content: '', isLoading: true }, convId);
-      setIsStreaming(true);
-
-      const history = currentConversation?.messages.map(m => ({ role: m.role, content: m.content })) || [];
-      history.push({ role: 'user', content: userContent });
-
-      let accumulated = '';
-      try {
-        await streamChat({
-          messages: history,
-          model_id: modelId,
-          onDelta: (chunk) => {
-            accumulated += chunk;
-            updateLastAssistantMessage(accumulated, convId);
-          },
-          onDone: () => setIsStreaming(false),
-        });
-      } catch {
-        setIsStreaming(false);
-        if (!accumulated) updateLastAssistantMessage('抱歉，AI 回复出错了，请稍后再试。', convId);
-      }
     }
   };
 
-  // Collect all unique tags from enabled models
   const allTags = Array.from(new Set(models.flatMap(m => m.tags || [])));
 
   return (
@@ -175,7 +183,6 @@ export function ChatInput() {
         onChange={() => toast.info('文件上传功能开发中')}
       />
       <div className="bg-card rounded-2xl border border-border shadow-sm">
-        {/* Input area */}
         <div className="flex items-end gap-2 p-3">
           <textarea
             value={input}
@@ -203,10 +210,8 @@ export function ChatInput() {
           </Button>
         </div>
 
-        {/* Bottom toolbar */}
         <div className="flex items-center justify-between px-3 pb-2.5 pt-0">
           <div className="flex items-center gap-1">
-            {/* Plus button */}
             <Popover open={plusPopoverOpen} onOpenChange={setPlusPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
@@ -229,7 +234,6 @@ export function ChatInput() {
               </PopoverContent>
             </Popover>
 
-            {/* Tools button */}
             <Popover open={toolsPopoverOpen} onOpenChange={setToolsPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground gap-1">
@@ -255,7 +259,6 @@ export function ChatInput() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Tags from models */}
             {allTags.map((tag, idx) => (
               <span
                 key={tag}
@@ -269,7 +272,6 @@ export function ChatInput() {
               </span>
             ))}
 
-            {/* Model selector */}
             <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
               <PopoverTrigger asChild>
                 <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
