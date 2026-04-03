@@ -56,6 +56,7 @@ const menuGroups = [
     label: "Agent管理",
     items: [
       { title: "Agent列表", url: "/admin/agents", icon: Bot },
+      { title: "LLM 模型", url: "/admin/llm", icon: Brain },
     ],
   },
   {

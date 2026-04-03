@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,18 +10,39 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const { messages, model_id } = await req.json();
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Determine model config
+    let baseUrl = "https://ai.gateway.lovable.dev/v1";
+    let apiKey = Deno.env.get("LOVABLE_API_KEY")!;
+    let modelName = "google/gemini-3-flash-preview";
+
+    if (model_id) {
+      const sbUrl = Deno.env.get("SUPABASE_URL")!;
+      const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(sbUrl, sbKey);
+      const { data: model } = await admin
+        .from("llm_models")
+        .select("model_name, base_url, api_key")
+        .eq("id", model_id)
+        .eq("enabled", true)
+        .single();
+
+      if (model) {
+        modelName = model.model_name;
+        if (model.base_url) baseUrl = model.base_url;
+        if (model.api_key) apiKey = model.api_key;
+      }
+    }
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: modelName,
         messages: messages.some((m: any) => m.role === "system")
           ? messages
           : [

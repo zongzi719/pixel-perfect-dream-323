@@ -49,6 +49,7 @@ export default function AdminApp() {
         <Route path="admins" element={<AdminManage />} />
         <Route path="agents" element={<AgentList />} />
         <Route path="agents/new" element={<AgentCreate />} />
+        <Route path="llm" element={<LLMConfig />} />
         <Route path="content" element={<ContentList />} />
         <Route path="content/:id" element={<ContentDetail />} />
         <Route path="notes-manage" element={<NotesManage />} />
