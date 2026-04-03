@@ -198,10 +198,10 @@ export default function LLMConfig() {
                     <span className="text-neutral-500 text-xs">标准</span>
                   )}
                 </TableCell>
-                <TableCell className="text-neutral-300">{m.provider}</TableCell>
-                <TableCell className="text-neutral-400 text-xs max-w-[200px] truncate">{m.base_url}</TableCell>
-                <TableCell className="text-neutral-300">{m.input_price}</TableCell>
-                <TableCell className="text-neutral-300">{m.output_price}</TableCell>
+                <TableCell className="text-neutral-700">{m.provider}</TableCell>
+                <TableCell className="text-neutral-500 text-xs max-w-[200px] truncate">{m.base_url}</TableCell>
+                <TableCell className="text-neutral-700">{m.input_price}</TableCell>
+                <TableCell className="text-neutral-700">{m.output_price}</TableCell>
                 <TableCell>
                   <div className="flex gap-1 flex-wrap">
                     {(m.tags || []).map(t => (
