@@ -1,11 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, BookOpen, FileText, Lightbulb, Settings, ChevronLeft, MessageSquare, Trash2 } from 'lucide-react';
+import { Search, Plus, BookOpen, FileText, Lightbulb, Settings, ChevronLeft, MessageSquare, Trash2, LogOut, Shield } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useChat } from '@/contexts/ChatContext';
 import { useMode } from '@/contexts/ModeContext';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +50,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { mode } = useMode();
   const navigate = useNavigate();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const { user, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('admin_users').select('id').eq('user_id', user.id).eq('status', 'active').maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [user]);
 
   const handleNewChat = () => {
     createConversation(mode).catch(() => {});
@@ -73,9 +89,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </Button>
         ))}
         <div className="flex-1" />
-        <Button variant="ghost" size="icon">
-          <Settings className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end">
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => navigate('/admin')}>
+                <Shield className="h-4 w-4 mr-2" />管理后台
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => { signOut(); navigate('/login'); }}>
+              <LogOut className="h-4 w-4 mr-2" />退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   }
@@ -154,10 +184,24 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {/* Settings */}
         <div className="p-3 border-t border-border">
-          <button className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg transition-colors">
-            <Settings className="h-4 w-4" />
-            <span>设置</span>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+                <Settings className="h-4 w-4" />
+                <span>设置</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start">
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => navigate('/admin')}>
+                  <Shield className="h-4 w-4 mr-2" />管理后台
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => { signOut(); navigate('/login'); }}>
+                <LogOut className="h-4 w-4 mr-2" />退出登录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
