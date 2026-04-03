@@ -186,7 +186,7 @@ export default function LLMConfig() {
                       {m.display_name}
                       {m.is_default && <Badge variant="outline" className="text-green-400 border-green-600 text-xs">默认</Badge>}
                     </div>
-                    <div className="text-neutral-500 text-xs">{m.model_name}</div>
+                    <div className="text-neutral-400 text-xs">{m.model_name}</div>
                   </div>
                 </TableCell>
                 <TableCell>
