@@ -17,6 +17,7 @@ import {
   useSetDefaultModel,
   type LLMModel,
 } from '@/admin/hooks/useLLMModels';
+import { supabase } from '@/integrations/supabase/client';
 
 const emptyForm = {
   model_name: '',
