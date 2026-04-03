@@ -28,13 +28,12 @@ export function WelcomeScreen() {
       {/* Suggestion tags */}
       <div className="flex flex-wrap gap-2 justify-center mb-8">
         {suggestions.map(tag => (
-          <button
+          <span
             key={tag}
-            onClick={handleStart}
-            className="px-4 py-2 rounded-full border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-primary/5 transition-all"
+            className="px-4 py-2 rounded-full border border-border bg-card text-sm text-muted-foreground"
           >
             {tag}
-          </button>
+          </span>
         ))}
       </div>
     </div>

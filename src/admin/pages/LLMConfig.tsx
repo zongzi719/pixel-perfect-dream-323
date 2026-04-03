@@ -236,7 +236,7 @@ export default function LLMConfig() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-neutral-900 border-neutral-800 text-white">
+        <DialogContent className="sm:max-w-lg bg-white border-neutral-200 text-neutral-900">
           <DialogHeader>
             <DialogTitle>{editingId ? '编辑模型' : '添加模型'}</DialogTitle>
           </DialogHeader>
