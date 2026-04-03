@@ -150,8 +150,8 @@ export default function LLMConfig() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">LLM 模型配置</h1>
-          <p className="text-neutral-400 text-sm mt-1">管理大语言模型接入配置</p>
+          <h1 className="text-2xl font-bold text-neutral-900">LLM 模型配置</h1>
+          <p className="text-neutral-500 text-sm mt-1">管理大语言模型接入配置</p>
         </div>
         <Button onClick={openCreate} className="gap-2">
           <Plus className="h-4 w-4" /> 添加模型
