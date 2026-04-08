@@ -4,10 +4,11 @@ import { Mic, Camera, Paperclip, ArrowUp } from 'lucide-react';
 interface Props {
   onSend: (text: string) => void;
   onVoiceClick: () => void;
+  onAttachmentClick?: () => void;
   disabled?: boolean;
 }
 
-export default function MobileChatInput({ onSend, onVoiceClick, disabled }: Props) {
+export default function MobileChatInput({ onSend, onVoiceClick, onAttachmentClick, disabled }: Props) {
   const [input, setInput] = useState('');
 
   const handleSend = () => {
@@ -21,7 +22,7 @@ export default function MobileChatInput({ onSend, onVoiceClick, disabled }: Prop
   return (
     <div className="shrink-0 px-3 pb-2 pt-1">
       <div className="flex items-center gap-2 bg-white/[0.07] border border-white/[0.1] rounded-2xl px-3 py-2">
-        <button className="text-white/30 hover:text-white/50 transition-colors shrink-0">
+        <button onClick={onAttachmentClick} className="text-white/30 hover:text-white/50 transition-colors shrink-0">
           <Paperclip size={20} />
         </button>
 
