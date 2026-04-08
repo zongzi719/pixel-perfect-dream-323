@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import MobileMeetingDetail from "./components/knowledge/MobileMeetingDetail";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +59,7 @@ export default function MobileApp() {
         <Route index element={<MobileChat />} />
         <Route path="chat" element={<MobileChat />} />
         <Route path="knowledge" element={<MobileKnowledge />} />
+        <Route path="knowledge/meeting/:id" element={<MobileMeetingDetail />} />
         <Route path="meetings" element={<MobileMeetings />} />
         <Route path="notes" element={<MobileNotes />} />
         <Route path="profile" element={<MobileProfile />} />
