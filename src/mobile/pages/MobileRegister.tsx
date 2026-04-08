@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import mobileBg from "@/assets/mobile-bg.jpg";
 
 export default function MobileRegister() {
   const navigate = useNavigate();
@@ -30,66 +31,82 @@ export default function MobileRegister() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background px-6 pt-safe-top">
-      {/* Header */}
-      <div className="pt-4">
-        <button onClick={() => navigate(-1)} className="text-muted-foreground active:text-foreground">
-          <ArrowLeft size={22} />
-        </button>
-      </div>
+    <div className="min-h-[100dvh] flex flex-col relative overflow-hidden">
+      {/* Background */}
+      <img src={mobileBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
 
-      <div className="flex flex-col items-center pt-10 pb-8">
-        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4">
-          <span className="text-primary-foreground text-xl font-bold">AI</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">注册 AI YOU</h1>
-      </div>
-
-      <div className="flex-1 flex flex-col gap-4">
-        <input
-          type="tel"
-          placeholder="请输入手机号"
-          value={phone}
-          onChange={e => setPhone(e.target.value)}
-          className="h-12 w-full rounded-xl border border-input bg-card px-4 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <div className="relative">
-          <input
-            type={showPwd ? "text" : "password"}
-            placeholder="请设置密码（至少6位）"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="h-12 w-full rounded-xl border border-input bg-card px-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <button
-            type="button"
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-            onClick={() => setShowPwd(!showPwd)}
-          >
-            {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
+      {/* Content */}
+      <div className="relative z-10 flex flex-col flex-1 px-8">
+        {/* Back */}
+        <div className="pt-14">
+          <button onClick={() => navigate(-1)} className="text-white/60 active:text-white">
+            <ArrowLeft size={22} />
           </button>
         </div>
-        <input
-          type={showPwd ? "text" : "password"}
-          placeholder="请确认密码"
-          value={confirm}
-          onChange={e => setConfirm(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleRegister(); }}
-          className="h-12 w-full rounded-xl border border-input bg-card px-4 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
 
-        <button
-          onClick={handleRegister}
-          disabled={loading}
-          className="h-12 w-full rounded-xl bg-foreground text-background text-base font-semibold active:scale-[0.98] transition-transform disabled:opacity-50 mt-2"
-        >
-          {loading ? "注册中..." : "立即注册"}
-        </button>
+        {/* Title */}
+        <div className="flex flex-col items-center pt-8 pb-12">
+          <h1 className="text-3xl font-light tracking-[0.3em] text-white">AI YOU</h1>
+          <p className="text-white/60 text-sm mt-2">注册新账号</p>
+        </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          已有账号？
-          <Link to="/m/login" className="text-primary font-medium ml-1">去登录</Link>
-        </p>
+        {/* Form */}
+        <div className="flex flex-col gap-0">
+          <div className="border-b border-white/15">
+            <input
+              type="tel"
+              placeholder="手机号"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              className="w-full h-[52px] bg-transparent text-white text-base placeholder:text-white/40 focus:outline-none"
+            />
+          </div>
+          <div className="border-b border-white/15 relative">
+            <input
+              type={showPwd ? "text" : "password"}
+              placeholder="设置密码（至少6位）"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full h-[52px] bg-transparent text-white text-base placeholder:text-white/40 pr-12 focus:outline-none"
+            />
+            <button
+              type="button"
+              className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-white/40"
+              onClick={() => setShowPwd(!showPwd)}
+            >
+              {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+          <div className="border-b border-white/15">
+            <input
+              type={showPwd ? "text" : "password"}
+              placeholder="确认密码"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleRegister(); }}
+              className="w-full h-[52px] bg-transparent text-white text-base placeholder:text-white/40 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Register button */}
+        <div className="pb-10 flex flex-col items-center gap-4">
+          <button
+            onClick={handleRegister}
+            disabled={loading}
+            className="w-full h-[52px] rounded-full bg-white text-black text-base font-medium active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {loading ? "注册中..." : "立即注册"}
+          </button>
+          <p className="text-xs text-white/40">
+            已有账号？
+            <Link to="/m/login" className="text-white/70 ml-1">去登录</Link>
+          </p>
+        </div>
       </div>
     </div>
   );
