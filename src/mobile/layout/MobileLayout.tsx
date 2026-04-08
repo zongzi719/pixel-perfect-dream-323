@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquare, Zap, FolderOpen, User, Plus } from "lucide-react";
+import { MessageSquare, Zap, FolderOpen, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatProvider } from "@/contexts/ChatContext";
 
