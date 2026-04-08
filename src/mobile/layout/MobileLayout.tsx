@@ -5,9 +5,8 @@ import { ChatProvider } from "@/contexts/ChatContext";
 
 const tabs = [
   { path: "/m/chat", label: "对话", icon: MessageSquare },
-  { path: "/m/meetings", label: "决策", icon: Zap },
-  { path: "__new__", label: "", icon: Plus },
-  { path: "/m/knowledge", label: "文件", icon: FolderOpen },
+  { path: "/m/meetings", label: "分身", icon: Zap },
+  { path: "/m/knowledge", label: "知识库", icon: FolderOpen },
   { path: "/m/profile", label: "我的", icon: User },
 ];
 
