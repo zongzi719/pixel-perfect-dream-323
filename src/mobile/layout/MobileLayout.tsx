@@ -1,12 +1,13 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquare, FolderOpen, Mic, Lightbulb, User } from "lucide-react";
+import { MessageSquare, Zap, FolderOpen, User, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChatProvider } from "@/contexts/ChatContext";
 
 const tabs = [
   { path: "/m/chat", label: "对话", icon: MessageSquare },
-  { path: "/m/knowledge", label: "知识库", icon: FolderOpen },
-  { path: "/m/meetings", label: "会议", icon: Mic },
-  { path: "/m/notes", label: "笔记", icon: Lightbulb },
+  { path: "/m/meetings", label: "决策", icon: Zap },
+  { path: "__new__", label: "", icon: Plus },
+  { path: "/m/knowledge", label: "文件", icon: FolderOpen },
   { path: "/m/profile", label: "我的", icon: User },
 ];
 
@@ -16,33 +17,47 @@ export default function MobileLayout() {
   const currentPath = location.pathname;
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-background">
-      {/* Main content area */}
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+    <ChatProvider>
+      <div className="flex flex-col h-[100dvh] bg-black">
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
 
-      {/* Bottom tab bar */}
-      <nav className="shrink-0 border-t border-border bg-card safe-area-bottom">
-        <div className="flex items-center justify-around h-14">
-          {tabs.map(({ path, label, icon: Icon }) => {
-            const isActive = currentPath === path || (path === "/m/chat" && currentPath === "/m");
-            return (
-              <button
-                key={path}
-                onClick={() => navigate(path)}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
-                <span className="text-[10px] font-medium">{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
+        <nav className="shrink-0 border-t border-white/[0.06] bg-black safe-area-bottom">
+          <div className="flex items-center justify-around h-14">
+            {tabs.map(({ path, label, icon: Icon }) => {
+              if (path === "__new__") {
+                return (
+                  <button
+                    key={path}
+                    onClick={() => navigate("/m/chat")}
+                    className="flex items-center justify-center -mt-4"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
+                      <Plus size={24} className="text-black" strokeWidth={2.5} />
+                    </div>
+                  </button>
+                );
+              }
+
+              const isActive = currentPath === path || (path === "/m/chat" && currentPath === "/m");
+              return (
+                <button
+                  key={path}
+                  onClick={() => navigate(path)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
+                    isActive ? "text-amber-400" : "text-white/30"
+                  )}
+                >
+                  <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
+                  <span className="text-[10px] font-medium">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+    </ChatProvider>
   );
 }
