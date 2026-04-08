@@ -59,6 +59,7 @@ export default function MobileApp() {
         <Route index element={<MobileChat />} />
         <Route path="chat" element={<MobileChat />} />
         <Route path="knowledge" element={<MobileKnowledge />} />
+        <Route path="knowledge/meeting/:id" element={<MobileMeetingDetail />} />
         <Route path="meetings" element={<MobileMeetings />} />
         <Route path="notes" element={<MobileNotes />} />
         <Route path="profile" element={<MobileProfile />} />
