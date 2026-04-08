@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import MobileMeetingDetail from "./components/knowledge/MobileMeetingDetail";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
