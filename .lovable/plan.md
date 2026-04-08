@@ -1,55 +1,62 @@
 
 
-# 诊断与修复 OpenClaw 聊天无回复问题
+# 移动端独立模块 + Capacitor 原生打包方案
 
-## 问题分析
+## 整体架构
 
-从 Edge Function 日志可以看到：
-```
-connected, session=user_5b2c...
-ws closed
-```
-WebSocket 连接成功后**立即关闭**，没有收到任何消息。说明问题出在 WebSocket 通信层，而非连接层（健康检查是 HTTP，所以测试连接成功）。
-
-可能原因：
-1. **ngrok 免费版对 WebSocket 支持有限** — 可能在握手后立即断开
-2. **OpenClaw 的 WS 消息格式与代码预期不匹配** — 导致服务端拒绝/关闭连接
-3. **Edge Function 中 Deno WebSocket 的 `onmessage` 注册时机问题** — 事件可能在注册前已触发
-
-## 解决方案
-
-在 `supabase/functions/chat/index.ts` 中做两项改进：
-
-### 1. 增加 OpenClaw HTTP REST API 支持（主要修复）
-
-许多 OpenClaw 实例同时提供 REST API（`POST /chat`）。改为使用 HTTP 请求而非 WebSocket，这样可以：
-- 完全兼容 ngrok
-- 避免 Deno Edge Function 中 WebSocket 的各种限制
-- 与现有 SSE 流式输出保持一致
-
-逻辑：先尝试 `POST {base_url}/chat/completions` 或 `POST {base_url}/chat`，如果 OpenClaw 支持 REST 流式输出，则直接透传 SSE。
-
-### 2. 增强调试日志
-
-在 WebSocket 分支中增加详细日志（发送的消息内容、收到的原始事件、关闭原因码），便于后续排查。
-
-### 文件变更
-
-| 文件 | 操作 |
-|------|------|
-| `supabase/functions/chat/index.ts` | 修改 `handleOpenClaw`，增加 HTTP REST 模式 + 增强日志 |
-
-### 实现细节
+项目将拥有三套独立的页面体系，共享同一个后端和核心逻辑：
 
 ```text
-openclaw 请求流程：
-1. 将 wss:// 转为 https://
-2. POST {base_url}/v1/chat/completions （OpenClaw 兼容 OpenAI 格式）
-   body: { model, messages, stream: true }
-3. 如果返回 SSE 流 → 直接透传给前端
-4. 如果返回 JSON → 包装成 SSE 格式返回
-5. 如果 REST 失败 → 回退到 WebSocket 方式（保留现有逻辑）
+src/
+├── pages/          # Web 端页面（现有）
+├── admin/          # 管理后台（现有）
+└── mobile/         # 移动端页面（新增）
+    ├── MobileApp.tsx          # 移动端路由入口
+    ├── layout/
+    │   └── MobileLayout.tsx   # 底部 Tab 导航布局
+    ├── pages/
+    │   ├── MobileLogin.tsx    # 登录页
+    │   ├── MobileRegister.tsx # 注册页
+    │   ├── MobileChat.tsx     # AI 对话主页
+    │   ├── MobileKnowledge.tsx# 知识库
+    │   ├── MobileMeetings.tsx # 会议纪要
+    │   ├── MobileNotes.tsx    # 灵感笔记
+    │   └── MobileProfile.tsx  # 个人中心
+    └── components/            # 移动端专用组件
 ```
 
-这个方案让 OpenClaw 走标准 HTTP 通道，彻底绕开 ngrok + Deno WebSocket 的兼容问题。
+路由结构：所有移动端页面挂在 `/m/*` 路径下，App.tsx 新增 `<Route path="/m/*" element={<MobileApp />} />`。
+
+## 分批实施计划
+
+### 第一批：基础框架 + 登录
+1. 创建 `src/mobile/` 目录结构和 MobileApp.tsx 路由入口
+2. 创建 MobileLayout（底部 Tab 栏：对话、知识库、会议、笔记、我的）
+3. 创建移动端登录/注册页面（全屏、大按钮、手机号优先）
+4. App.tsx 中挂载 `/m/*` 路由
+
+### 第二批：AI 对话页
+5. 移动端对话列表 + 对话详情页（复用 ChatContext）
+6. 移动端输入框（底部固定、语音按钮预留）
+
+### 第三批：知识库 + 会议 + 笔记
+7. 知识库文件列表和上传（移动端适配）
+8. 会议纪要列表和详情
+9. 灵感笔记卡片列表和创建
+
+### 第四批：Capacitor 打包
+10. 安装 `@capacitor/core`、`@capacitor/cli`、`@capacitor/ios`、`@capacitor/android`
+11. 初始化 Capacitor 配置，appId: `app.lovable.9f1d3f08ab6e43c1bfc0d11cfd395ae4`
+12. 配置 server URL 指向沙箱预览地址用于开发调试
+
+## 技术要点
+
+- **复用**：共享 `useAuth`、`ChatContext`、`ModeContext`、Supabase client 等，不重复实现业务逻辑
+- **UI 独立**：移动端组件全部在 `src/mobile/` 下，使用触摸友好的大按钮、底部导航、全屏布局
+- **路由隔离**：Web `/`、Admin `/admin/*`、Mobile `/m/*` 三套路由互不干扰
+- **Capacitor 入口**：打包时将默认路由指向 `/m/`，确保 App 打开直接进入移动端页面
+
+## 建议先做第一批
+
+先搭建移动端框架和登录页，确认整体架构和视觉风格后再逐步推进后续页面。
 
