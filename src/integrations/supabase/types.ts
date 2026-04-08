@@ -532,6 +532,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          onboarding_completed: boolean
           phone: string | null
           status: string
           token_balance: number
@@ -545,6 +546,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          onboarding_completed?: boolean
           phone?: string | null
           status?: string
           token_balance?: number
@@ -558,6 +560,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          onboarding_completed?: boolean
           phone?: string | null
           status?: string
           token_balance?: number
@@ -674,6 +677,42 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      user_ai_boss: {
+        Row: {
+          avatar_generated_url: string | null
+          avatar_source_url: string | null
+          created_at: string
+          id: string
+          interview_data: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+          voice_recording_url: string | null
+        }
+        Insert: {
+          avatar_generated_url?: string | null
+          avatar_source_url?: string | null
+          created_at?: string
+          id?: string
+          interview_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          voice_recording_url?: string | null
+        }
+        Update: {
+          avatar_generated_url?: string | null
+          avatar_source_url?: string | null
+          created_at?: string
+          id?: string
+          interview_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          voice_recording_url?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
