@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { MessageSquare, Zap, FolderOpen, User, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatProvider } from "@/contexts/ChatContext";
+import AiRecordModal from "@/mobile/components/notes/AiRecordModal";
 
 const tabs = [
   { path: "/m/chat", label: "对话", icon: MessageSquare },
@@ -15,6 +17,7 @@ export default function MobileLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
+  const [showRecord, setShowRecord] = useState(false);
 
   return (
     <ChatProvider>
@@ -30,7 +33,7 @@ export default function MobileLayout() {
                 return (
                   <button
                     key={path}
-                    onClick={() => navigate("/m/notes")}
+                    onClick={() => setShowRecord(true)}
                     className="flex items-center justify-center -mt-4"
                   >
                     <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
@@ -58,6 +61,8 @@ export default function MobileLayout() {
           </div>
         </nav>
       </div>
+
+      <AiRecordModal open={showRecord} onClose={() => setShowRecord(false)} />
     </ChatProvider>
   );
 }
