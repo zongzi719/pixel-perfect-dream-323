@@ -4,6 +4,7 @@ import { Mic, Camera, Paperclip, ArrowUp } from 'lucide-react';
 interface Props {
   onSend: (text: string) => void;
   onVoiceClick: () => void;
+  onAttachmentClick?: () => void;
   disabled?: boolean;
 }
 
