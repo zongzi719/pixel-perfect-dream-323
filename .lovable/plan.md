@@ -1,95 +1,75 @@
 
 
-# 移动端私人模式对话功能
+# 移动端决策模式开发
 
 ## 概述
 
-基于设计稿，将现有占位的 `MobileChat` 替换为完整的私人模式对话页面，包含：欢迎页、AI 流式对话、语音录入、文件附件、会话历史侧边栏、消息操作菜单。复用现有 `ChatContext` 和 `chat` edge function。
+基于设计稿，在移动端 MobileChat 中实现决策模式功能。用户切换到"决策模式"后，可看到欢迎页（介绍 + 默认教练卡片）、选择教练面板、多教练 AI 对话（带结构化标签如"决策建议"/"风险提示"/"关键问题"），以及教练开关、语音输入、附件等功能。
 
-## 页面结构分析（来自设计稿）
+## 设计稿功能分析
 
 ```text
-┌─────────────────────────────┐
-│ ☰   [私人模式] [决策模式]  ◇ │  ← 顶部栏
-├─────────────────────────────┤
-│                             │
-│  背景图 + "我是AI YOU"       │  ← 欢迎页（无对话时）
-│  "你的分身已经准备用你的方式思考"│
-│  试试问我：                  │
-│  [帮我生成一个笔记] [测MBTI]  │
-│  [换一批 🔄]                │
-│  或者随便聊点什么             │
-│  ——我都能接得住              │
-├─────────────────────────────┤
-│ 🔗  [问一问AI YOU  🎤 📷]    │  ← 输入栏
-│     [点击录音 🎙]            │  ← 语音面板（可展开）
-├─────────────────────────────┤
-│ 💬  ⚡  [+]  📁  👤         │  ← 底部 Tab（已有）
-└─────────────────────────────┘
+教练模式2.png    → 决策欢迎页：标题 + 4个功能点 + 默认教练卡片 + "开始对话"
+教练模式2-1.png  → 发送问题后，Strategy Coach 回复"正在搜索历史资料..."
+教练模式2-2.png  → 教练选择面板（底部弹出），最多3个，带头像/描述/勾选
+教练模式2-3.png  → 多教练回复：结构化段落（决策建议/关键问题），Risk Coach 带开关toggle
+教练模式2-4.png  → 语音输入面板（复用现有 VoicePanel）
+教练模式2-5.png  → 语音录制中，已转为文字显示在输入框
+教练模式2-6.png  → 消息中附件缩略图（Word/图表文件）
+教练模式2-7.png  → 附件选择菜单（知识库/本地文件/微信文件/腾讯文档）
+教练模式2-8.png  → 教练 toggle 关闭后显示"后续将不再显示该教练"
 ```
 
 ## 文件变更
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `src/mobile/pages/MobileChat.tsx` | **重写** | 完整私人模式对话页主容器 |
-| `src/mobile/components/chat/MobileChatWelcome.tsx` | **新建** | 欢迎页：背景图 + AI YOU + 建议问题 |
-| `src/mobile/components/chat/MobileChatMessages.tsx` | **新建** | 消息列表：用户金色气泡右对齐，AI 深色卡片左对齐，markdown 渲染 |
-| `src/mobile/components/chat/MobileChatInput.tsx` | **新建** | 底部输入栏：文字输入 + 发送 + 语音 + 相机 + 附件按钮 |
-| `src/mobile/components/chat/MobileVoicePanel.tsx` | **新建** | 语音录制面板：按住录音 + 暂停 + 计时器 + 重录/确认 |
-| `src/mobile/components/chat/MobileChatSidebar.tsx` | **新建** | 左侧滑出会话历史：头像+用户名+对齐率，按日期分组的历史列表，搜索 |
-| `src/mobile/components/chat/MobileMessageActions.tsx` | **新建** | 消息长按菜单：重命名/加入知识库/继续追问/重新生成/格式转换/分享 |
-| `src/mobile/components/chat/MobileAttachmentPicker.tsx` | **新建** | 附件弹出菜单：知识库/本地文件/微信文件/腾讯文档 |
-| `src/mobile/layout/MobileLayout.tsx` | **修改** | 底部 Tab 样式更新：中间金色 "+" 按钮突出，图标更新匹配设计稿 |
+| `src/mobile/pages/MobileChat.tsx` | **修改** | 集成 ModeContext，根据 mode 切换私人/决策视图 |
+| `src/mobile/components/chat/MobileDecisionWelcome.tsx` | **新建** | 决策欢迎页：标题+功能点+默认教练卡片+"开始对话" |
+| `src/mobile/components/chat/MobileDecisionMessages.tsx` | **新建** | 决策对话消息列表：教练头像+名称+角色标签+结构化内容（决策建议/关键问题/风险提示）+教练开关toggle+操作栏 |
+| `src/mobile/components/chat/MobileCoachSelector.tsx` | **新建** | 底部弹出教练选择面板：头像+名称+描述+角色标签+勾选，最多3个 |
+| `src/mobile/components/chat/MobileAttachmentPicker.tsx` | **新建** | 附件选择菜单：知识库/本地文件/微信文件/腾讯文档 |
 
 ## 功能细节
 
-### 1. 欢迎页 (`MobileChatWelcome`)
-- 背景：极光/雪山图（复用 `mobile-bg.jpg` 或类似深色氛围图，半透明覆盖）
-- "我是AI YOU" 大标题 + "你的分身已经准备用你的方式思考" 副标题
-- 建议问题列表（pill 标签），点击直接发送
-- "换一批" 按钮随机切换建议
-- "或者随便聊点什么——我都能接得住" 文案
+### 1. 决策欢迎页 (`MobileDecisionWelcome`)
+- 深色渐变背景 + 微光效果
+- 标题"欢迎来到决策模式" + 副文案"在此模式下，你的商业问题将由多位教练共同分析，帮助您"
+- 4个功能点：模拟老板思维、追问关键问题、给出决策建议、纠正潜在决策错误
+- 默认教练卡片（Sarah Chen）：头像 + 名称 + "默认教练" + 描述 + "最强大脑"标签 + "我擅长" + 示例回复
+- 底部"开始对话"按钮
 
-### 2. 消息渲染 (`MobileChatMessages`)
-- 用户消息：金色/琥珀色背景右对齐气泡，白色文字
-- AI 消息：深灰/黑色卡片左对齐，白色文字，支持 markdown（ReactMarkdown）
-- AI 回复下方操作栏：复制、收藏、重新生成、展开更多操作
-- 文件附件卡片（Word 图标 + 文件名 + 日期 + 大小）
+### 2. 教练选择面板 (`MobileCoachSelector`)
+- 右上角教练图标触发，底部 sheet 弹出
+- 标题"选择教练" + "最多选择三个教练 (X/3)"
+- 教练列表：圆形头像 + 名称 + 描述 + 角色标签（战略/风险/产品/增长/数据）+ 金色勾选圈
+- 复用 `coaches` 数据和 `ModeContext.toggleCoach`
 
-### 3. 输入栏 (`MobileChatInput`)
-- 圆角深色输入框 "问一问AI YOU"
-- 左侧附件按钮（🔗）
-- 右侧：麦克风图标（展开语音面板）+ 相机图标
-- 输入文字后麦克风变为发送按钮（金色圆形↑）
-- 复用现有 `streamChat` 逻辑和 `ChatContext`
+### 3. 决策消息渲染 (`MobileDecisionMessages`)
+- 用户消息：金色气泡右对齐（复用私人模式样式）
+- 教练回复：左对齐，头像 + 名称 + 角色标签 + 开关 toggle
+- 结构化内容块：带图标的段落卡片
+  - 👁 决策建议（紫色图标）— 深色背景卡片
+  - 🔮 关键问题（青色图标）— 深色背景卡片
+  - 👾 风险提示（橙/紫色图标）— 深色背景卡片
+- 操作栏：复制、收藏、重新生成、分享
+- toggle 关闭后半透明 + 提示"后续将不再显示该教练"
 
-### 4. 语音面板 (`MobileVoicePanel`)
-- 点击麦克风展开底部面板
-- 中心大圆形录音按钮（金色边框）
-- 录制中：暂停按钮 + 计时器 (02:32) + 左侧重录 + 右侧确认（✓）
-- 录音完成后转为文字输入（语音转文字功能预留，当前将录音作为附件或模拟 STT）
+### 4. 对话逻辑
+- 决策模式发送消息时，按 selectedCoaches 顺序逐个请求 chat edge function，每个教练使用不同 system prompt（角色设定）
+- 流式显示每个教练回复，教练回复带 coachId
+- "正在搜索历史资料..."加载提示
 
-### 5. 会话侧边栏 (`MobileChatSidebar`)
-- 左上角 ☰ 图标触发，从左侧滑入
-- 顶部：头像 + 用户名 + 对齐率 Lv.X
-- 搜索框
-- 历史会话按日期分组（2026/03/11 等），显示 last_message 预览
-- 点击切换会话，长按可删除
-
-### 6. 消息操作 (`MobileMessageActions`)
-- AI 消息下方显示 4 个小图标（复制/收藏/重新生成/更多）
-- 点击更多或长按消息弹出菜单：重命名、加入知识库、继续追问、重新生成、格式转换、分享
-
-### 7. 底部 Tab 栏更新
-- 匹配设计稿样式：深色背景，中间 "+" 按钮金色突出圆形
-- 5 个 Tab：对话（💬）、决策（⚡）、+（新建）、文件夹（📁）、我的（👤）
+### 5. 附件选择 (`MobileAttachmentPicker`)
+- 点击附件按钮弹出菜单
+- 4个选项：知识库、本地文件、微信文件、腾讯文档
+- 当前为 UI 占位，功能预留
 
 ## 技术要点
 
-- **复用 ChatContext**：`useChat()` 已提供 conversations/messages/streaming 全部能力
-- **流式 AI 回复**：直接复用 `ChatInput.tsx` 中已有的 `streamChat` 函数，提取为共享 util
-- **深色主题**：所有组件使用黑色/深灰背景 + 白色文字 + 金色强调色（`#C9A84C` / `amber-500`）
-- **语音录制**：使用 MediaRecorder API（与 onboarding StepVoice 类似），当前将录音时长显示并模拟转文字
-- **无需数据库变更**：完全复用现有 conversations/messages 表
+- **复用 ModeContext**：mode/selectedCoaches/toggleCoach/disabledCoaches/toggleCoachActive
+- **复用 ChatContext**：createConversation('decision', coaches) + addMessage with coachId
+- **决策 AI 调用**：每个教练单独调用 streamChat，system prompt 包含教练角色描述
+- **结构化解析**：AI 回复中用 markdown heading 区分段落类型（## 决策建议 / ## 关键问题 / ## 风险提示），前端解析渲染为卡片
+- **深色主题**：黑色背景 + 白色文字 + 金色/紫色/青色强调色
 
