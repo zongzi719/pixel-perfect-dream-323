@@ -13,6 +13,8 @@ import MobileKnowledge from "./pages/MobileKnowledge";
 import MobileMeetings from "./pages/MobileMeetings";
 import MobileNotes from "./pages/MobileNotes";
 import MobileProfile from "./pages/MobileProfile";
+import MobileAccountCenter from "./pages/MobileAccountCenter";
+import MobileSettings from "./pages/MobileSettings";
 import MobileOnboarding from "./pages/onboarding/MobileOnboarding";
 
 function MobileAuthGuard({ children }: { children: React.ReactNode }) {
@@ -64,6 +66,8 @@ export default function MobileApp() {
         <Route path="notes" element={<MobileNotes />} />
         <Route path="profile" element={<MobileProfile />} />
       </Route>
+      <Route path="account" element={<MobileAuthGuard><MobileAccountCenter /></MobileAuthGuard>} />
+      <Route path="settings" element={<MobileAuthGuard><MobileSettings /></MobileAuthGuard>} />
       <Route path="*" element={<Navigate to="/m" replace />} />
     </Routes>
   );
