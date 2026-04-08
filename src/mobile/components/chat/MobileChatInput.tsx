@@ -8,7 +8,7 @@ interface Props {
   disabled?: boolean;
 }
 
-export default function MobileChatInput({ onSend, onVoiceClick, disabled }: Props) {
+export default function MobileChatInput({ onSend, onVoiceClick, onAttachmentClick, disabled }: Props) {
   const [input, setInput] = useState('');
 
   const handleSend = () => {
