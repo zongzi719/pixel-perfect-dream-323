@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound.tsx";
 import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
 import AdminApp from "./admin/AdminApp";
+import MobileApp from "./mobile/MobileApp";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const AppRoutes = () => (
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />
     <Route path="/admin/*" element={<AdminApp />} />
+    <Route path="/m/*" element={<MobileApp />} />
     <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
     <Route path="/knowledge" element={<AuthGuard><KnowledgeBase /></AuthGuard>} />
     <Route path="/meetings" element={<AuthGuard><MeetingMinutes /></AuthGuard>} />
