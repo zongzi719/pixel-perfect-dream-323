@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import MobileLayout from "./layout/MobileLayout";
 import MobileSplash from "./pages/MobileSplash";
@@ -10,15 +12,38 @@ import MobileKnowledge from "./pages/MobileKnowledge";
 import MobileMeetings from "./pages/MobileMeetings";
 import MobileNotes from "./pages/MobileNotes";
 import MobileProfile from "./pages/MobileProfile";
+import MobileOnboarding from "./pages/onboarding/MobileOnboarding";
 
 function MobileAuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <Loader2 className="h-8 w-8 animate-spin text-white/40" />
-    </div>
-  );
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (loading || !user) {
+      setCheckingOnboarding(false);
+      return;
+    }
+    supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        setOnboardingCompleted((data as any)?.onboarding_completed ?? false);
+        setCheckingOnboarding(false);
+      });
+  }, [user, loading]);
+
+  if (loading || checkingOnboarding) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/m/splash" replace />;
+  if (onboardingCompleted === false) return <Navigate to="/m/onboarding" replace />;
   return <>{children}</>;
 }
 
@@ -28,6 +53,7 @@ export default function MobileApp() {
       <Route path="splash" element={<MobileSplash />} />
       <Route path="login" element={<MobileLogin />} />
       <Route path="register" element={<MobileRegister />} />
+      <Route path="onboarding" element={<MobileOnboarding />} />
       <Route element={<MobileAuthGuard><MobileLayout /></MobileAuthGuard>}>
         <Route index element={<MobileChat />} />
         <Route path="chat" element={<MobileChat />} />
