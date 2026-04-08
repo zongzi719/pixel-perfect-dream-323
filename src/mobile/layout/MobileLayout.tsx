@@ -26,6 +26,20 @@ export default function MobileLayout() {
         <nav className="shrink-0 border-t border-white/[0.06] bg-black safe-area-bottom">
           <div className="flex items-center justify-around h-14">
             {tabs.map(({ path, label, icon: Icon }) => {
+              if (path === "__new__") {
+                return (
+                  <button
+                    key={path}
+                    onClick={() => navigate("/m/notes")}
+                    className="flex items-center justify-center -mt-4"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30 active:scale-95 transition-transform">
+                      <Plus size={24} className="text-black" strokeWidth={2.5} />
+                    </div>
+                  </button>
+                );
+              }
+
               const isActive = currentPath === path || (path === "/m/chat" && currentPath === "/m");
               return (
                 <button
